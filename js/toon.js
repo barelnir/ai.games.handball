@@ -56,7 +56,7 @@ export const SQUADS = [
       { role: 'GK', pos: 'Goalkeeper', name: 'Hive', build: 'big', skin: '#e0ac85', hair: '#3d2618', style: 'helmet', acc: ['gloves'], emblem: 'hex', power: 'Honey Wall: the goal looks smaller for 5 s' },
       { role: 'LW', pos: 'Left wing', name: 'Zip', build: 'small', skin: '#f1c7a5', hair: '#f0cf6a', style: 'spiky', acc: ['headband'], emblem: 'bolt', power: 'Lightning Dash: burst of speed' },
       { role: 'LB', pos: 'Left back', name: 'Stinger', build: 'normal', skin: '#7a4b2f', hair: '#20150f', style: 'buzz', acc: ['antennae', 'cape'], emblem: 'stinger', power: 'Stinger Shot: curving shot' },
-      { role: 'CB', pos: 'Centre back', name: 'Captain Comb', build: 'normal', skin: '#c68b62', hair: '#20150f', style: 'quiff', acc: ['cape', 'captain'], emblem: 'hex', power: 'Rally: whole team runs faster' },
+      { role: 'CB', pos: 'Centre back', name: 'Eitan', build: 'normal', skin: '#f2c6a4', hair: '#6e4a2a', style: 'swoop', acc: ['glasses'], emblem: 'bolt', power: 'Lightning Eitan: fireball shot, the keeper freezes' },
       { role: 'RB', pos: 'Right back', name: 'Buzz', build: 'normal', skin: '#f1c7a5', hair: '#c2412a', style: 'pigtails', acc: ['goggles'], emblem: 'star', power: 'Buzz Bomb: rocket shot' },
       { role: 'RW', pos: 'Right wing', name: 'Dash', build: 'small', skin: '#a36a45', hair: '#141414', style: 'pony', acc: ['headband'], emblem: 'bolt', power: 'Wall Run: sprint along the sideline' },
       { role: 'PV', pos: 'Pivot', name: 'Honey Tank', build: 'big', skin: '#e0ac85', hair: '#6b4425', style: 'buzz', acc: ['beard'], emblem: 'hex', power: 'Unmovable: can\'t be pushed off the line' },
@@ -570,4 +570,60 @@ export function drawHeadTag(R, p, t, c) {
   setInk(R);
   const y = p.y - (p.z || 0) * Z2Y - 1.3 + Math.sin(t * 5) * 0.04;
   T(R, p.x - 0.12, y - 0.12, p.x + 0.12, y - 0.12, p.x, y + 0.03, c, 0.02);
+}
+
+// ------------------------------------------------------------------ power effects
+const FIRE = ['#fff3b0', '#ffd23f', '#ff9f1c', '#ff5a1f', '#d62818'].map((h) => col(h));
+const q = (a) => Math.max(0, Math.min(1, Math.round(a * 10) / 10));
+
+// A ball on fire: flickering flames rise from it (screen-up), with a hot core.
+export function drawFireBall(R, x, y, z, t) {
+  setInk(R);
+  const sy = y - z * Z2Y, sh = 1 / (1 + z * 0.8);
+  R.ellipse(x, y + 0.02, 0.14 * sh, 0.06 * sh, TP.shadow);
+  R.ellipse(x, sy, 0.3, 0.3, col('#ff9f1c', 0.25));
+  for (let i = 0; i < 6; i++) {
+    const a = t * 14 + i * 1.7, w = 0.07 + (i % 3) * 0.02;
+    const ox = (i - 2.5) * 0.04 + Math.sin(a) * 0.03;
+    const h = 0.22 + Math.sin(a * 1.3) * 0.07 + (i % 2) * 0.06;
+    R.tri(x + ox - w, sy, x + ox + w, sy, x + ox + Math.sin(a * 0.7) * 0.05, sy - h - 0.06, FIRE[2 + (i % 3)]);
+  }
+  E(R, x, sy, 0.13, 0.13, FIRE[2]);
+  R.ellipse(x, sy + 0.01, 0.09, 0.09, FIRE[1]);
+  R.ellipse(x - 0.03, sy - 0.03, 0.04, 0.04, FIRE[0]);
+}
+
+// Trail of a flying fireball: oldest point first. Each point is {x, y, z}.
+export function drawFireTrail(R, trail, t) {
+  const n = trail.length;
+  // a continuous ribbon: glow, then flame, then hot core, each tapering towards the tail
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 1; i < n; i++) {
+      const a = trail[i - 1], b = trail[i], k = i / n;
+      const ay = a.y - a.z * Z2Y, by = b.y - b.z * Z2Y;
+      const w = [0.3, 0.19, 0.08][pass] * (0.25 + k * 0.75);
+      const c = pass === 0 ? col('#d62818', q(k * 0.45)) : pass === 1 ? col('#ff9f1c', q(0.3 + k * 0.7)) : col('#fff3b0', q(k));
+      R.line(a.x, ay, b.x, by, w, c);
+    }
+  }
+  for (let i = 0; i < n; i += 3) { // sparks
+    const p = trail[i], sy = p.y - p.z * Z2Y, a = t * 20 + i;
+    R.ellipse(p.x + Math.sin(a) * 0.2, sy + Math.cos(a * 1.3) * 0.2, 0.025, 0.025, FIRE[0]);
+  }
+}
+
+// Lightning glow around a powered-up hero.
+export function drawPowerAura(R, p, t) {
+  setInk(R);
+  const X = p.x, Y = p.y - (p.z || 0) * Z2Y;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 10);
+  R.ellipse(X, Y - 0.55, 0.62 + pulse * 0.06, 0.78 + pulse * 0.06, col('#7fe7ff', 0.2));
+  R.ring(X, p.y + 0.02, 0.45, 0.18, 0.04, col('#7fe7ff', 0.8));
+  for (let i = 0; i < 3; i++) {
+    if (Math.sin(t * 23 + i * 2.1) < 0.2) continue; // flicker
+    const a = t * 3 + i * 2.09, cx = X + Math.cos(a) * 0.55, cy = Y - 0.55 + Math.sin(a) * 0.65;
+    R.line(cx, cy - 0.12, cx - 0.06, cy, 0.022, col('#7fe7ff'));
+    R.line(cx - 0.06, cy, cx + 0.05, cy + 0.02, 0.022, col('#7fe7ff'));
+    R.line(cx + 0.05, cy + 0.02, cx - 0.02, cy + 0.14, 0.022, col('#7fe7ff'));
+  }
 }

@@ -10,51 +10,28 @@
 // Each team fills an energy meter (time on court, goals, saves, steals). Activating a power
 // spends the meter and applies the power's `mods` to the chosen player for `duration` seconds.
 
-export const POWERS_ENABLED = false;
+export const POWERS_ENABLED = true;
 
 export const POWERS = {
-  rocketShot: {
-    name: 'Rocket Shot',
-    about: 'Next shot flies 40% faster and straighter.',
+  // Eitan's power: the ball turns into a fireball. A shot with it can't be blocked and the keeper freezes.
+  lightning: {
+    name: 'Lightning Eitan',
+    about: 'Fireball shot: unblockable, the keeper freezes.',
+    hero: 'Eitan',
     cost: 100,
-    duration: 6,
-    target: 'carrier',
-    mods: { shotSpeed: 1.4, shotError: 0.5 },
-  },
-  turbo: {
-    name: 'Turbo Legs',
-    about: 'Sprint 35% faster for 4 seconds.',
-    cost: 60,
-    duration: 4,
-    target: 'controlled',
-    mods: { speed: 1.35 },
-  },
-  stickyHands: {
-    name: 'Sticky Hands',
-    about: 'Bigger catch radius and very hard to steal from.',
-    cost: 70,
-    duration: 6,
-    target: 'controlled',
-    mods: { catchRadius: 1.5, stealResist: 3 },
-  },
-  keeperWall: {
-    name: 'Keeper Wall',
-    about: 'Your goalkeeper reaches 60% further for 5 seconds.',
-    cost: 80,
-    duration: 5,
-    target: 'goalkeeper',
-    mods: { gkReach: 1.6 },
+    duration: 10,
+    mods: { shotSpeed: 1.35, shotError: 0.6 },
   },
 };
 
 export const ENERGY_MAX = 100;
-const GAIN = { second: 0.6, goal: 18, save: 14, steal: 12 };
+const GAIN = { second: 1.2, goal: 18, save: 14, steal: 12 };
 
 export class PowerSystem {
   constructor(game) {
     this.game = game;
     this.enabled = POWERS_ENABLED;
-    this.selected = Object.keys(POWERS)[0];
+    this.selected = 'lightning';
   }
 
   // Product of all active effects on this player for a modifier key (1 when none).
@@ -83,19 +60,34 @@ export class PowerSystem {
     }
   }
 
-  // Returns true when the power fired. While POWERS_ENABLED is false this is a no-op.
+  // Called when the player presses POWER. Returns true, or the reason it can't fire yet:
+  // 'energy' (meter not full), 'ball' (team doesn't have the ball), 'missing' (hero not on court).
   activate(teamIdx, id = this.selected) {
-    if (!this.enabled) return false;
-    const g = this.game, team = g.teams[teamIdx], def = POWERS[id];
-    if (!def || team.energy < def.cost) return false;
-    let target = null;
-    if (def.target === 'goalkeeper') target = team.players.find((p) => p.gk);
-    else if (def.target === 'carrier') target = g.ball.owner && g.ball.owner.team === teamIdx ? g.ball.owner : null;
-    else target = g.controlled && g.controlled.team === teamIdx ? g.controlled : null;
-    if (!target) return false;
-    team.energy -= def.cost;
-    target.effects.push({ id, t: def.duration });
-    g.emit({ type: 'power', id, team: teamIdx });
-    return true;
+    if (!this.enabled) return 'off';
+    const g = this.game, team = g.teams[teamIdx], def = POWERS[id], b = g.ball;
+    if (g.pendingPower || b.fire) return true;
+    if (team.energy < def.cost) return 'energy';
+    const hero = team.players.find((p) => p.active && p.hero && p.hero.name === def.hero);
+    if (!hero) return 'missing';
+    if (b.owner === hero) { this.start(hero, id); return true; }
+    if (b.owner && b.owner.team === teamIdx && g.state === 'play') {
+      g.pass(b.owner, hero);            // the carrier passes to the hero; the power starts on the catch
+      if (b.passTo === hero) g.pendingPower = hero;
+      return true;
+    }
+    return 'ball';
+  }
+
+  start(hero, id = this.selected) {
+    const g = this.game, def = POWERS[id], team = g.teams[hero.team];
+    team.energy = Math.max(0, team.energy - def.cost);
+    hero.effects = hero.effects.filter((e) => e.id !== id);
+    hero.effects.push({ id, t: def.duration });
+    g.pendingPower = null;
+    g.ball.fire = true;
+    g.fireT = def.duration;
+    g.splash = 1.8;
+    g.say(def.name.toUpperCase() + '!', 'Fireball ready!', 1.9, 'power');
+    g.emit({ type: 'power', id, team: hero.team });
   }
 }

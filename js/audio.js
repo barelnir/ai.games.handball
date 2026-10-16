@@ -163,6 +163,38 @@ export class Sound {
 
   ok() { return this.ctx && !this.muted && this.ctx.state === 'running'; }
 
+  // electric power-up: rising buzz plus a crackle
+  zap() {
+    if (!this.ok()) return;
+    const c = this.ctx, t = c.currentTime;
+    const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(90, t);
+    o.frequency.exponentialRampToValueAtTime(880, t + 0.6);
+    f.type = 'lowpass'; f.frequency.setValueAtTime(600, t); f.frequency.exponentialRampToValueAtTime(5000, t + 0.6);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+    o.connect(f); f.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + 0.95);
+    for (let i = 0; i < 6; i++) this.hat(t + 0.1 + i * 0.07, this.master, 0.25);
+  }
+
+  // fireball shot: a falling noise sweep
+  whoosh() {
+    if (!this.ok()) return;
+    const c = this.ctx, t = c.currentTime;
+    const n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    n.buffer = this.noise;
+    f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(2500, t); f.frequency.exponentialRampToValueAtTime(300, t + 0.7);
+    g.gain.setValueAtTime(0.5, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+    n.connect(f); f.connect(g); g.connect(this.master);
+    n.start(t); n.stop(t + 0.85);
+    this.thud(0.5, 70);
+  }
+
   whistle(n = 1, short = false) {
     if (!this.ok()) return;
     const c = this.ctx, t0 = c.currentTime;

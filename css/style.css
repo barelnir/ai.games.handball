@@ -103,6 +103,8 @@ button:focus-visible { outline: 2px solid var(--hornet); outline-offset: 2px; }
 }
 .banner.goal strong { color: var(--outline); background: var(--hornet); font-size: clamp(56px, 12vw, 100px); }
 .banner.rule strong { color: var(--hornet); }
+.banner.power { top: auto; bottom: calc(var(--sab) + 6%); }
+.banner.power strong { color: var(--outline); background: #7fe7ff; font-size: clamp(28px, 6vw, 46px); }
 .banner.soft strong { font-size: clamp(22px, 4.5vw, 32px); border-width: 2px; }
 
 .corner { position: absolute; top: calc(var(--sat) + 8px); right: calc(var(--sar) + 10px); display: flex; gap: 6px; pointer-events: auto; }
@@ -188,6 +190,11 @@ body:not(.touch) #stick { display: none; }
   align-content: center;
   gap: 1px;
 }
+.tb.power.ready { animation: ready 0.9s ease-in-out infinite; background:
+    radial-gradient(circle at center, #24305e 58%, transparent 60%),
+    conic-gradient(#7fe7ff 100%, #7fe7ff 0); }
+.tb.power.ready small { color: #7fe7ff; font-weight: 900; }
+@keyframes ready { 50% { transform: scale(1.12); box-shadow: 0 0 18px #7fe7ff; } }
 .tb.power small { font: 600 9px var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 
 /* ---------------------------------------------------------------- screens */
@@ -260,4 +267,5 @@ legend { float: left; width: 84px; font-size: 12px; font-weight: 700; letter-spa
 }
 @media (prefers-reduced-motion: reduce) {
   .banner, #stick, #knob { transition: none; }
+  .tb.power.ready { animation: none; }
 }

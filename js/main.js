@@ -7,6 +7,7 @@ import * as T from './toon.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { POWERS_ENABLED, ENERGY_MAX } from './powers.js';
+import { drawPortrait, LIGHTNING } from './eitan.js';
 
 const $ = (s) => document.querySelector(s);
 const STEP = 1 / 60;
@@ -197,6 +198,11 @@ function handleEvents() {
       case 'post': sound.thud(0.5, 900); break;
       case 'block': sound.thud(0.4, 120); break;
       case 'card': sound.crowd(0.12, 1); break;
+      case 'power':
+        sound.zap(); sound.crowd(0.4, 2.5); excite = 1;
+        if (navigator.vibrate) try { navigator.vibrate([40, 30, 80]); } catch {}
+        break;
+      case 'fireshot': sound.whoosh(); break;
     }
   }
   game.events.length = 0;
@@ -226,8 +232,14 @@ function updateCamera(dt) {
 // ------------------------------------------------------------------ render
 const ents = [];
 const HINT = T.col('#ffd23f'), SOFT = T.col('#ffffff', 0.45);
+const trail = [];
 function render() {
   const g = game, b = g.ball;
+  if (g.splash > 0) { renderSplash(g.splash); return; }
+  if (b.fire && !b.owner && b.state !== 'dead') {
+    trail.push({ x: b.x, y: b.y, z: b.z });
+    if (trail.length > 26) trail.shift();
+  } else trail.length = 0;
   R.begin(cam.x, cam.y, cam.ppm, T.TP.clear);
   T.drawToonArena(R, now, excite);
   T.drawToonGoalBack(R, 0);
@@ -248,6 +260,7 @@ function render() {
   for (const e of ents) {
     if (e.p) {
       const p = e.p;
+      if (p.effects.length || p.frozen > 0) T.drawPowerAura(R, p, now);
       T.drawHero(R, p.hero, g.teams[p.team].kit, p, {
         t: now,
         hasBall: b.owner === p,
@@ -257,7 +270,8 @@ function render() {
     } else if (e.ref) {
       T.drawToonRef(R, e.ref, g.signal && e.i === 0 ? g.signal.type : null, now);
     } else if (e.ball) {
-      if (b.state !== 'dead' || g.state === 'goal') T.drawToonBall(R, b.x, b.y, b.z, b.owner ? 0 : now);
+      if (b.fire) { T.drawFireTrail(R, trail, now); T.drawFireBall(R, b.x, b.y, b.z, now); }
+      else if (b.state !== 'dead' || g.state === 'goal') T.drawToonBall(R, b.x, b.y, b.z, b.owner ? 0 : now);
     } else T.toonPost(R, e.post, POST_HI);
   }
 
@@ -266,6 +280,15 @@ function render() {
     drawRuleDots(c);
     if (c.charging) drawAim(c);
   }
+  R.end();
+}
+
+// Full-screen POWER close-up: Eitan with a big head, flexing, looking at you.
+function renderSplash(left) {
+  const c = R.canvas, total = 1.8, k = total - left;
+  const zoom = Math.min(1, 0.55 + k * 2.2);           // quick zoom-in
+  R.begin(0, -0.75, (c.height / 5.4) * zoom, T.TP.clear);
+  drawPortrait(R, LIGHTNING, now, Math.min(1, k / 0.25));
   R.end();
 }
 
@@ -342,7 +365,9 @@ function updateHUD() {
   if ($('#lB').textContent !== lb) { $('#lB').textContent = lb; $('#kB').textContent = lb.toLowerCase(); }
   const e = Math.round((g.teams[h].energy / ENERGY_MAX) * 100);
   $('#btnP').style.setProperty('--e', e);
-  $('#btnP').querySelector('small').textContent = POWERS_ENABLED ? `${e}%` : 'soon';
+  const ready = POWERS_ENABLED && e >= 100;
+  $('#btnP').classList.toggle('ready', ready);
+  $('#btnP').querySelector('small').textContent = !POWERS_ENABLED ? 'soon' : ready ? 'READY' : `${e}%`;
 }
 
 function showBreak() {

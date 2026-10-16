@@ -1,14 +1,10 @@
 // Eitan: a custom hero for the Hornets, plus the full-screen "POWER" portrait
 // (big head looking at you, flexing muscular arms). Four costume/power variants to choose from.
 
-import { col, TP, ink, setInk } from './toon.js';
+import { col, TP, ink, setInk, SQUADS } from './toon.js';
 
-// In-game look (small figure), shared by all variants; the variant changes kit details.
-export const EITAN = {
-  role: 'CB', pos: 'Centre back', name: 'Eitan', build: 'normal',
-  skin: '#f2c6a4', hair: '#6e4a2a', style: 'swoop', acc: ['glasses'], emblem: 'star',
-  power: 'Eitan Power',
-};
+// In-game look (small figure): Eitan plays centre back for the Hornets.
+export const EITAN = SQUADS[0].heroes.find((h) => h.name === 'Eitan');
 
 export const VARIANTS = [
   {
@@ -38,6 +34,8 @@ export const VARIANTS = [
 ];
 
 // The in-game hero with a variant's kit applied.
+export const LIGHTNING = VARIANTS.find((v) => v.key === 'lightning');
+
 export function eitanHero(v) {
   return { ...EITAN, acc: [...EITAN.acc, ...(v.acc.includes('cape') ? ['cape'] : []), ...(v.acc.includes('headband') ? ['headband'] : [])], emblem: v.emblem === 'flame' ? 'drop' : v.emblem === 'shield' ? 'hex' : v.emblem };
 }

@@ -61,7 +61,7 @@ export class Game {
     this.input = {};
     this.powers = new PowerSystem(this);
     this.teams = [0, 1].map((i) => ({
-      idx: i, kit: KITS[i], score: 0, defX: i === 0 ? 0 : W, energy: 0,
+      idx: i, kit: KITS[i], score: 0, defX: i === 0 ? 0 : W, energy: 60,
       players: ROLES.map((r, j) => makePlayer(i, r, j)),
       stats: { shots: 0, goals: 0, saves: 0, steals: 0, fouls: 0, turnovers: 0, suspensions: 0 },
     }));
@@ -122,6 +122,8 @@ export class Game {
     if (this.msg && (this.msg.t -= dt) <= 0) this.msg = null;
     if (this.signal && (this.signal.t -= dt) <= 0) this.signal = null;
     if (this.state === 'halftime' || this.state === 'fulltime') { this.clearEdges(); return; }
+    // the POWER close-up freezes the match for a moment
+    if (this.splash > 0) { this.splash -= dt; this.clearEdges(); return; }
 
     this.clock += dt;
     if (this.clock >= this.opts.halfLen) { this.endHalf(); this.clearEdges(); return; }
@@ -182,8 +184,12 @@ export class Game {
 
   updateHuman(inp, dt) {
     const c = this.controlled, b = this.ball;
-    if (inp.pPress && !this.powers.activate(this.opts.human)) {
-      this.say('Powers soon!', '', 1.2, 'soft');
+    if (inp.pPress) {
+      const r = this.powers.activate(this.opts.human);
+      const pct = Math.floor(this.teams[this.opts.human].energy);
+      if (r === 'energy') this.say('Power charging', `${pct}%`, 1.2, 'soft');
+      else if (r === 'ball') this.say('Get the ball first!', '', 1.2, 'soft');
+      else if (r === 'missing') this.say('Eitan is off court', '', 1.2, 'soft');
     }
     if (!c) return;
     if (b.owner === c) {
@@ -230,6 +236,7 @@ export class Game {
     this.computeRoles();
     for (const p of this.all) {
       if (!p.active) { this.benchPose(p, dt); continue; }
+      p.frozen = (p.frozen || 0) - dt;
       p.stealCd -= dt; p.actT += dt; p.stance -= dt; p.slowT -= dt; p.landT += dt;
       if (p.action && p.actT > (p.action === 'dive' ? 0.7 : 0.45)) p.action = null;
 
@@ -428,7 +435,7 @@ export class Game {
     const b = this.ball, t = this.teamOf(p), gx = t.defX, s = this.dir(t);
     if (b.owner === p) return { x: p.x, y: p.y, s: 0 };
     if (b.state === 'shot' && b.goalX === gx) {
-      if (b.age < this.diffFor(p).react || Math.abs(b.vx) < 0.1) return { x: p.x, y: p.y, s: 0 };
+      if (p.frozen > 0 || b.age < this.diffFor(p).react || Math.abs(b.vx) < 0.1) return { x: p.x, y: p.y, s: 0 };
       const gkx = gx + s * 0.55;
       const py = clamp(b.y + b.vy * ((gkx - b.x) / b.vx), POST_LO - 0.3, POST_HI + 0.3);
       if (!p.action && Math.abs(py - p.y) > 0.45) { p.action = 'dive'; p.actT = 0; p.diveDir = Math.sign(py - p.y); }
@@ -596,10 +603,15 @@ export class Game {
     p.ai.holdLimit = p.gk ? rnd(0.6, 1.4) : rnd(0.7, 2.0);
     p.ai.think = rnd(0.1, 0.3);
     if (prev !== p.team) this.changePossession(p.team);
+    if (this.pendingPower) {
+      if (p === this.pendingPower) this.powers.start(p);
+      else this.pendingPower = null;
+    }
     this.emit({ type: 'catch', team: p.team });
   }
 
   changePossession(team) {
+    this.ball.fire = false;
     if (this.poss !== team) this.teams[this.poss].stats.turnovers++;
     this.poss = team; this.attackT = 0; this.passive = false; this.passivePasses = 0;
     const h = this.opts.human;
@@ -667,6 +679,12 @@ export class Game {
     b.vz = (tz - b.z + 0.5 * G * T * T) / T;
     t.stats.shots++;
     this.passive = false; this.passivePasses = 0; this.attackT = 0;
+    if (b.fire) {
+      b.fireShot = true;
+      if (gk) gk.frozen = 1.5;
+      p.effects = p.effects.filter((e) => e.id !== 'lightning');
+      this.emit({ type: 'fireshot', team: p.team });
+    }
     this.emit({ type: 'shot', team: p.team, power });
   }
 
@@ -807,6 +825,8 @@ export class Game {
   // ---------------------------------------------------------------- ball
   updateBall(dt) {
     const b = this.ball;
+    if (b.fire && !b.fireShot && (this.fireT -= dt) <= 0) b.fire = false;
+    if (b.fireShot && b.state !== 'shot') { b.fire = false; b.fireShot = false; }
     if (b.owner) {
       const p = b.owner, fx = Math.cos(p.face) >= 0 ? 1 : -1;
       b.y = p.y + 0.02;
@@ -862,6 +882,7 @@ export class Game {
   shotContacts(px, py) {
     const b = this.ball, gx = b.goalX, s = gx === 0 ? 1 : -1;
     const def = this.teams.find((t) => t.defX === gx);
+    if (b.fire) return false; // a fireball can't be blocked or saved
     for (const o of def.players) {
       if (!o.active || o.gk || b.tried.has(o)) continue;
       const d = hyp(o.x - b.x, o.y - b.y);

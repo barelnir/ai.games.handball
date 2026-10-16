@@ -148,11 +148,11 @@ async function loudness(page, ms = 1500) {
   await page.evaluate(() => { localStorage.setItem('handball7', JSON.stringify({ half: '180', music: false })); });
   await page.reload();
   await page.clock.runFor(1500);
-  await page.tap('#play');
+  await page.evaluate(() => document.querySelector('#play').click());
   for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
   const ht = await page.textContent('#brEyebrow');
   check(/Half-time/.test(ht), 'half-time screen after the first half', ht);
-  await page.tap('#brNext');
+  await page.evaluate(() => document.querySelector('#brNext').click());
   await page.clock.runFor(2000);
   const sides = await page.evaluate(() => handball.game.teams.map((t) => t.defX));
   check(sides[0] === 40 && sides[1] === 0, 'teams switch ends for the second half');

@@ -5,7 +5,7 @@
   "description": "A 2D handball game in plain HTML + WebGPU. No build step.",
   "scripts": {
     "start": "python3 -m http.server 8080",
-    "test": "node tests/sim.mjs",
+    "test": "node tests/sim.mjs && node tests/power.mjs",
     "e2e": "node tests/e2e.mjs"
   }
 }

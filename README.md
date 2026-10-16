@@ -43,22 +43,28 @@ js/toon.js          Cartoon art: hero squads, court, goals, referees, ball (buil
 js/input.js         Keyboard + multi-touch joystick and buttons
 js/audio.js         Synthesised music loop, whistle, ball and crowd sounds (WebAudio, no audio files)
 mock/index.html     Character sheet / look-and-feel mock
-js/powers.js        Special powers framework (disabled, ready for later)
+js/powers.js        Special powers (Lightning Eitan)
+js/eitan.js         Eitan's full-screen POWER portrait (four costume variants)
 sw.js, manifest     PWA: install to the home screen, works offline
 tests/sim.mjs       Headless AI-vs-AI matches (`npm test`)
+tests/power.mjs     Eitan's power, end to end (`npm test`)
+tests/e2e.mjs       Playwright phone test of the real game (`npm run e2e`)
 ```
 
 **Graphics:** every shape (ellipse, rounded rectangle, ring, capsule line, rounded triangle) is one instance of a quad. A GLSL fragment shader shades it with an anti-aliased signed-distance function, so the whole frame is a single `drawArraysInstanced(…, 6, n)` call. Browsers without WebGL 2 automatically use the Canvas 2D renderer, which has the same API. The renderer in use is shown on the menu screen.
 
 **Heroes:** chibi-style players (head about half the height) with ink outlines, drawn upright on a top-down court. Each squad has 7 named heroes with their own hair, masks, capes, goggles and chest emblems, and poses for running, dribbling, jump shots, stealing, blocking and goalkeeper dives. `PACE` in `js/game.js` sets the overall game speed.
 
-## Special powers (next step)
+## Special power: Lightning Eitan
 
-`js/powers.js` is the extension slot. The game already asks it for a multiplier wherever a power could matter: `speed`, `shotSpeed`, `shotError`, `catchRadius`, `stealResist` and `gkReach`. Each team fills an energy meter (shown around the POWER button) from time, goals, saves and steals. To turn powers on:
+The Hornets' centre back is **Eitan** (glasses, swept-up brown hair). The POWER button fills up over time and with goals, saves and steals. When it glows **READY**:
 
-1. add or edit entries in `POWERS` (four examples are there: Rocket Shot, Turbo Legs, Sticky Hands, Keeper Wall),
-2. set `POWERS_ENABLED = true`,
-3. optionally add visuals in `toon.js` by checking `player.effects`. Each hero already has a planned power in `SQUADS` (`toon.js`).
+1. Press POWER. If a team-mate has the ball, they pass it straight to Eitan.
+2. The match freezes for a full-screen close-up: big-headed Eitan flexing, with lightning eyes (`js/eitan.js`).
+3. The ball becomes a **fireball** in Eitan's hands (10 seconds).
+4. A fireball shot flies faster with a trail of fire. It can't be blocked, and the keeper freezes, shown with lightning around him.
+
+`js/powers.js` holds the power definition (cost, duration, modifiers). The game asks it for multipliers (`speed`, `shotSpeed`, `shotError`, `catchRadius`, `stealResist`, `gkReach`), so more heroes' powers can be added the same way. `mock/eitan.html` shows the four hero designs that were considered. `npm test` also runs `tests/power.mjs`, which checks the power end to end.
 
 ## Deploy (GitHub Pages)
 
