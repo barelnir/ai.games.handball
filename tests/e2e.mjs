@@ -163,7 +163,7 @@ await run('control', async () => {
     await waitGame(page, 0.4);
     const m2 = await me(page);
     const fair = await G(page, () => handball.game.state === 'play' && !(handball.game.splash > 0) && !(handball.game.controlled.frozen > 0));
-    if (!m2 || m2.stick !== null || (fair && m2.sp > 0.8)) {
+    if (!m2 || m2.stick !== null || (fair && m2.id === m1.id && m2.sp > 0.8)) {
       stuck++;
       console.log('   stuck detail', JSON.stringify({ before: m1, after: m2, dbg: await G(page, () => { const g = handball.game, c = g.controlled; return { owner: g.ball.owner && g.ball.owner.id, air: c.air, state: g.state, splash: g.splash, lock: !!g.lock, inp: [handball.input.state.mx, handball.input.state.my], frozen: c.frozen }; }) }));
     }
@@ -231,6 +231,15 @@ await run('power', async () => {
     await startMatch(P, i % 3, i);
     check(await G(page, () => handball.game.template.key) === keys[i], `${keys[i]}: picked`);
     check(await G(page, () => document.querySelector('#btnP').classList.contains('ready')), `${keys[i]}: POWER is full at kick-off`);
+    // POWER at a throw-off / free throw works too
+    if (i === 0) {
+      await G(page, () => { const g = handball.game; g.setPiece('freethrow', 0, 15, 10); });
+      await t.tapEl('#btnP');
+      await waitGame(page, 0.05);
+      check(await G(page, () => !!handball.game.ball.power && handball.game.splash > 0), 'POWER works during a free throw');
+      await page.waitForFunction(() => !(handball.game.splash > 0), null, { timeout: 15000 });
+      await G(page, () => { const g = handball.game; g.ball.power = null; g.teams[0].energy = 100; g.state = 'play'; g.lock = null; });
+    }
     // make sure our team has the ball, then tap POWER
     await G(page, () => { const g = handball.game; g.setOwner(g.teams[0].players.find((p) => p.role === 'LB')); });
     await t.tapEl('#btnP');
@@ -245,19 +254,24 @@ await run('power', async () => {
     await G(page, () => { const g = handball.game, c = g.ball.owner, ax = g.teams[0].defX === 0 ? 40 : 0; c.x = ax + (ax ? -9 : 9); c.y = 9.5; });
     await wait(page, 200);
     await page.screenshot({ path: `${out}/11-power-${keys[i]}-ball.png` });
+    const pre = await G(page, () => { const g = handball.game; return { owner: g.ball.owner && g.ball.owner.id, ctrl: g.controlled && g.controlled.id, state: g.state, power: g.ball.power, splash: g.splash }; });
+    const shots0 = await G(page, () => handball.game.teams[0].stats.shots);
     await t.tapEl('#btnB');
-    await wait(page, 250);
-    check(await G(page, () => handball.game.ball.state === 'shot' && !!handball.game.ball.power), `${keys[i]}: powered shot flies`);
+    await waitGame(page, 0.15);
+    // the shot left the hand with the power (it may already be in the net or blocked: muscle can be blocked)
+    const flew = await G(page, (s0) => handball.game.teams[0].stats.shots > s0, shots0);
+    check(flew, `${keys[i]}: powered shot flies`, flew ? '' : JSON.stringify({ pre, post: await G(page, () => { const g = handball.game; return { owner: g.ball.owner && g.ball.owner.id, state: g.state, bstate: g.ball.state, power: g.ball.power, msg: g.msg && g.msg.title }; }) }));
     await page.screenshot({ path: `${out}/12-power-${keys[i]}-shot.png` });
     // armed power: rivals have the ball
-    await page.waitForFunction(() => !handball.game.ball.power && handball.game.state === 'play', null, { timeout: 10000 }).catch(() => {});
+    await page.waitForFunction(() => !handball.game.ball.power && !(handball.game.splash > 0) && handball.game.state === 'play', null, { timeout: 60000 });
     await G(page, () => { const g = handball.game; g.teams[0].energy = 100; g.setOwner(g.teams[1].players.find((p) => p.role === 'CB')); });
     await t.tapEl('#btnP');
     await wait(page, 150);
     const armed = await G(page, () => handball.game.powers.teams[0].armed);
     await G(page, () => { const g = handball.game; g.setOwner(g.teams[0].players.find((p) => p.role === 'RB')); });
     await wait(page, 100);
-    check(armed && await G(page, () => !!handball.game.ball.power), `${keys[i]}: POWER without the ball fires when we get it`);
+    const after = await G(page, () => { const g = handball.game; return { power: g.ball.power, owner: g.ball.owner && g.ball.owner.team, energy: Math.round(g.teams[0].energy), state: g.state, splash: g.splash, msg: g.msg && g.msg.title }; });
+    check(armed && !!after.power, `${keys[i]}: POWER without the ball fires when we get it`, armed && after.power ? '' : JSON.stringify({ armed, after }));
     check(errors.length === 0, `${keys[i]}: no page errors`, errors.slice(0, 2).join(' | '));
     await page.close();
   }

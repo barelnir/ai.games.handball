@@ -177,6 +177,7 @@ export class Game {
 
     this.updateControl(inp);
     if (this.state === 'play') this.updateHuman(inp, dt);
+    else if (this.state === 'setpiece') this.powerButton(inp); // POWER works at throw-offs and free throws too
     this.updatePlayers(dt, inp);
     this.updateBall(dt);
     if (this.state === 'play') { this.updateRules(dt); this.aiPowers(dt); }
@@ -215,14 +216,18 @@ export class Game {
     if (c && b.owner === c) this.passHint = this.pickPassTarget(c, inp.mx || 0, inp.my || 0);
   }
 
+  powerButton(inp) {
+    if (!inp.pPress || this.opts.human < 0) return;
+    inp.pPress = false;
+    const r = this.powers.activate(this.opts.human);
+    const pct = Math.floor(this.teams[this.opts.human].energy);
+    if (r === 'energy') this.say('הכוח נטען', `${pct}%`, 1.2, 'soft');
+    else if (r === 'armed') this.say('הכוח דרוך!', 'יופעל כשתשיגו את הכדור', 1.6, 'soft');
+  }
+
   updateHuman(inp, dt) {
     const c = this.controlled, b = this.ball;
-    if (inp.pPress) {
-      const r = this.powers.activate(this.opts.human);
-      const pct = Math.floor(this.teams[this.opts.human].energy);
-      if (r === 'energy') this.say('הכוח נטען', `${pct}%`, 1.2, 'soft');
-      else if (r === 'armed') this.say('הכוח דרוך!', 'יופעל כשתשיגו את הכדור', 1.6, 'soft');
-    }
+    this.powerButton(inp);
     if (!c) return;
     if (b.owner === c) {
       if (inp.aPress) {

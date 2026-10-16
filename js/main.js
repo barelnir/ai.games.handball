@@ -337,7 +337,7 @@ const HINT = T.col('#ffd23f'), SOFT = T.col('#ffffff', 0.45);
 const trail = [];
 function render() {
   const g = game, b = g.ball;
-  if (g.splash > 0) { renderSplash(g.splash); return; }
+  if (g.splash > 0 && mode !== 'menu' && mode !== 'pick') { renderSplash(g.splash); return; }
   if (b.power && !b.owner && b.state !== 'dead') {
     trail.push({ x: b.x, y: b.y, z: b.z });
     if (trail.length > 26) trail.shift();
