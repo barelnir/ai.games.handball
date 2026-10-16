@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Handball Seven</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A 2D handball game for phone and desktop, rendered with WebGPU.">
+<meta name="theme-color" content="#0d1622">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game" aria-label="Handball court"></canvas>
+
+<div id="hud" hidden>
+  <div class="board" role="status" aria-live="polite">
+    <div class="team home"><i class="kit"></i><span class="abbr">HOR</span></div>
+    <div class="score"><b id="s0">0</b><span>:</span><b id="s1">0</b></div>
+    <div class="team away"><span class="abbr">VIP</span><i class="kit"></i></div>
+    <div class="clock"><span id="clock">00:00</span><small id="half">1st half</small></div>
+  </div>
+  <div class="flags">
+    <div id="passive" class="flag" hidden>Passive play · <span id="passLeft">4</span> passes</div>
+    <div id="susp" class="susp"></div>
+  </div>
+  <div id="banner" class="banner" aria-live="assertive"><strong id="bTitle"></strong><span id="bSub"></span></div>
+  <div class="corner">
+    <button id="btnSound" class="ico" aria-label="Toggle sound">♪</button>
+    <button id="btnFull" class="ico" aria-label="Fullscreen">⤢</button>
+    <button id="btnPause" class="ico" aria-label="Pause">❚❚</button>
+  </div>
+  <div id="keys" class="keys">
+    <span><kbd>WASD</kbd> move</span><span><kbd>J</kbd> <em id="kA">pass</em></span><span><kbd>K</kbd> hold <em id="kB">shoot</em></span><span><kbd>L</kbd> power</span><span><kbd>P</kbd> pause</span>
+  </div>
+</div>
+
+<div id="touch" hidden>
+  <div id="stickZone"></div>
+  <div id="stick"></div>
+  <div id="knob"></div>
+  <div class="pad">
+    <button id="btnP" class="tb power" aria-label="Special power"><span>POWER</span><small>soon</small></button>
+    <button id="btnA" class="tb a"><span id="lA">PASS</span></button>
+    <button id="btnB" class="tb b"><span id="lB">SHOOT</span></button>
+  </div>
+</div>
+
+<section id="menu" class="screen">
+  <div class="panel menu-panel">
+    <p class="eyebrow">7 v 7 · indoor · 40 × 20 m</p>
+    <h1>Handball<br><span>Seven</span></h1>
+    <p class="lede">You play the <b class="c-home">Hornets</b> against the <b class="c-away">Vipers</b>. Take the ball through the 9-metre line, jump into the goal area and beat the keeper.</p>
+    <div class="opts">
+      <fieldset><legend>Opponent</legend>
+        <div class="seg" data-key="difficulty">
+          <button data-v="easy">Easy</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button>
+        </div>
+      </fieldset>
+      <fieldset><legend>Halves</legend>
+        <div class="seg" data-key="half">
+          <button data-v="180">2 × 3 min</button><button data-v="300">2 × 5 min</button><button data-v="600">2 × 10 min</button>
+        </div>
+      </fieldset>
+      <fieldset><legend>Rules</legend>
+        <div class="seg" data-key="rules">
+          <button data-v="full">Full IHF</button><button data-v="arcade">Arcade</button>
+        </div>
+      </fieldset>
+    </div>
+    <div class="row">
+      <button id="play" class="cta">Throw-off</button>
+      <button id="openRules" class="ghost">Rules &amp; controls</button>
+    </div>
+    <p class="fine">Renderer: <span id="gfx">…</span></p>
+  </div>
+</section>
+
+
+<section id="pause" class="screen" hidden>
+  <div class="panel small">
+    <h2>Time-out</h2>
+    <div class="col">
+      <button id="resume" class="cta">Resume</button>
+      <button id="restart" class="ghost">Restart match</button>
+      <button id="toRules" class="ghost">Rules &amp; controls</button>
+      <button id="toMenu" class="ghost">Main menu</button>
+    </div>
+  </div>
+</section>
+
+<section id="break" class="screen" hidden>
+  <div class="panel small">
+    <p class="eyebrow" id="brEyebrow">Half-time</p>
+    <h2 id="brScore">0 : 0</h2>
+    <table class="stats" id="brStats"></table>
+    <div class="col">
+      <button id="brNext" class="cta">Start second half</button>
+      <button id="brMenu" class="ghost">Main menu</button>
+    </div>
+  </div>
+</section>
+
+<section id="rules" class="screen" hidden>
+  <div class="panel rules-panel">
+    <header class="rules-head">
+      <h2>How handball works</h2>
+      <button class="ghost close" data-close="rules">Back</button>
+    </header>
+    <div class="rules-body">
+      <article>
+        <h3>The court</h3>
+        <p>40 × 20 m with a 3 × 2 m goal at each end. The solid <b>6-metre line</b> marks the goal area: only the goalkeeper may stand in it. Attackers may jump in, but must release the ball before landing. The dashed line is the <b>9-metre free-throw line</b>, and the short mark at 7 m is the penalty spot.</p>
+      </article>
+      <article>
+        <h3>Teams &amp; time</h3>
+        <p>Each side has 6 court players and a goalkeeper. A match is two halves of 30 minutes (shortened here) and teams change ends at half-time. After every goal the conceding team restarts with a <b>throw-off</b> from the centre.</p>
+      </article>
+      <article>
+        <h3>Carrying the ball</h3>
+        <ul>
+          <li><b>3 steps</b> – you may take at most three steps while holding the ball.</li>
+          <li><b>3 seconds</b> – you may hold it for at most three seconds.</li>
+          <li><b>Dribble</b> as long as you like, but once you catch it again you can't start a new dribble (double dribble).</li>
+        </ul>
+        <p>Breaking these gives the other team a free throw.</p>
+      </article>
+      <article>
+        <h3>Defending</h3>
+        <p>Use your body from the front to block. Pulling, pushing or hitting – especially from behind – is a foul and gives a free throw. If the foul destroys a clear chance to score, it's a <b>7-metre throw</b>: shooter against keeper.</p>
+      </article>
+      <article>
+        <h3>Punishments</h3>
+        <p>Repeated or dangerous fouls bring a <b>yellow card</b>, then a <b>2-minute suspension</b> (the team plays one short). A third suspension is a <b>red card</b>.</p>
+      </article>
+      <article>
+        <h3>Passive play</h3>
+        <p>A team can't keep the ball without trying to score. After the referee's raised-arm warning the attack has <b>4 passes</b> left before it must shoot.</p>
+      </article>
+      <article>
+        <h3>Restarts</h3>
+        <p><b>Throw-in</b> when the ball crosses a sideline. <b>Goalkeeper throw</b> when the attackers put it over the goal line (or the keeper saves it out). <b>Corner throw-in</b> when a defender last touched it.</p>
+      </article>
+      <article class="controls">
+        <h3>Controls</h3>
+        <table>
+          <tr><th></th><th>Phone</th><th>Keyboard</th></tr>
+          <tr><td>Move</td><td>Left thumb anywhere</td><td>WASD / arrows</td></tr>
+          <tr><td>Pass · switch player</td><td>PASS / SWITCH</td><td>J or Z</td></tr>
+          <tr><td>Jump shot · steal</td><td>Hold SHOOT, release</td><td>Hold K or X</td></tr>
+          <tr><td>Aim a shot</td><td>Stick up or down</td><td>W / S while shooting</td></tr>
+          <tr><td>Special power</td><td>POWER</td><td>L</td></tr>
+          <tr><td>Pause</td><td>❚❚</td><td>P or Esc</td></tr>
+        </table>
+        <p class="fine">Passes go to the team-mate in the direction you push. Stand still too long after a dribble and the 3-second and 3-step rules start counting – watch the dots above your player.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<div id="rotate" hidden><div>Turn your phone sideways for the full court.</div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
