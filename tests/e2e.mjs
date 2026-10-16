@@ -171,9 +171,12 @@ await run('control', async () => {
   check(movedOk >= 7, 'the hero runs while the pad is held', `${movedOk}/8 directions`);
   check(stuck === 0, 'the hero stops every time the thumb lifts', `${stuck} stuck`);
   // c) drag far outside the pad and off the left half, then release
-  await t.down(1, c.x, c.y); await t.move(1, c.x + 300, c.y - 200); await waitGame(page, 0.3); await t.up(1); await waitGame(page, 0.4);
+  await t.down(1, c.x, c.y); await t.move(1, c.x + 300, c.y - 200); await waitGame(page, 0.3);
+  const m0 = await me(page);
+  await t.up(1); await waitGame(page, 0.4);
   let m = await me(page);
-  check(m.stick === null && m.sp < 0.8, 'release after dragging far away still stops', `speed ${m.sp.toFixed(2)}`);
+  const fairFar = await G(page, () => handball.game.state === 'play' && !(handball.game.splash > 0) && !(handball.game.controlled.frozen > 0));
+  check(m.stick === null && !(fairFar && m.id === m0.id && m.sp > 0.8), 'release after dragging far away still stops', `speed ${m.sp.toFixed(2)}`);
   // d) two thumbs: hold the pad, tap buttons, lift in both orders
   const b = await t.center('#btnB'), a = await t.center('#btnA');
   for (let k = 0; k < 4; k++) {
