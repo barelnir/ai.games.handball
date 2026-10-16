@@ -1,6 +1,6 @@
 // Scene drawing: arena, court markings, goals, players, referees, ball and overlays.
 // Everything is built from four primitives (ellipse, rounded rect, ring, line) so it runs on
-// both the WebGPU and the Canvas 2D renderer.
+// both the WebGL and the Canvas 2D renderer.
 
 import { W, H, CX, CY, POST_LO, POST_HI, GOAL_H, AREA_R, FREE_R, PEN_D, GK_LINE, Z2Y, dPoint } from './court.js';
 

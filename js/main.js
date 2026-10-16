@@ -27,8 +27,8 @@ sound.muted = !settings.sound;
 
 // ------------------------------------------------------------------ setup
 async function boot() {
-  R = await createRenderer($('#game'), { onLost: rebuildRenderer });
-  $('#gfx').textContent = R.kind === 'WebGPU' ? 'WebGPU' : 'Canvas 2D (WebGPU not available on this device)';
+  R = createRenderer($('#game'));
+  $('#gfx').textContent = R.kind === 'WebGL 2' ? 'WebGL 2' : 'Canvas 2D (WebGL 2 not available on this device)';
   resize();
   addEventListener('resize', resize);
   addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -38,11 +38,6 @@ async function boot() {
   if ('serviceWorker' in navigator && location.protocol === 'https:' && window.top === window) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-}
-
-async function rebuildRenderer() {
-  R = await createRenderer(R.canvas, { onLost: rebuildRenderer });
-  resize();
 }
 
 function resize() {

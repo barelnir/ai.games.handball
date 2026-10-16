@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hero Squad Mock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one centred column; each section is a live WebGL canvas with captions underneath. */
+:root {
+  --night: #101833;
+  --panel: #18224a;
+  --ink: #f3f5ff;
+  --muted: #a9b4dc;
+  --hornet: #ffd23f;
+  --viper: #e8453c;
+  --line: rgba(243, 245, 255, 0.14);
+  --display: 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif;
+  --body: 'Barlow', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink);
+  font: 500 16px/1.5 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+main { max-width: 1000px; margin: 0 auto; display: grid; gap: 40px; }
+header p { max-width: 62ch; color: var(--muted); margin: 10px 0 0; }
+.eyebrow { margin: 0 0 6px; color: var(--hornet); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+h1 { margin: 0; font: 900 clamp(44px, 9vw, 84px)/0.88 var(--display); text-transform: uppercase; letter-spacing: 0.01em; text-wrap: balance; }
+h1 span { color: var(--hornet); }
+h2 { margin: 0 0 4px; font: 800 28px/1 var(--display); text-transform: uppercase; letter-spacing: 0.03em; text-wrap: balance; }
+h2 .h { color: var(--hornet); }
+h2 .v { color: var(--viper); }
+section > p { margin: 0 0 14px; color: var(--muted); max-width: 66ch; }
+canvas { display: block; width: 100%; border-radius: 10px; }
+.phone {
+  max-width: 844px;
+  aspect-ratio: 844 / 390;
+  border: 10px solid #05070f;
+  border-radius: 34px;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px #2a3566, 0 18px 50px rgba(0, 0, 0, 0.45);
+  background: #05070f;
+}
+.phone canvas { height: 100%; border-radius: 0; }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 10px; }
+.sheet { min-width: 760px; background: var(--panel); border-radius: 10px; }
+.sheet canvas { aspect-ratio: 7 / 2.4; border-radius: 10px 10px 0 0; }
+.sheet.six canvas { aspect-ratio: 6 / 2.3; }
+.names { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid var(--line); }
+.six .names { grid-template-columns: repeat(6, 1fr); }
+.names div { padding: 10px 10px 14px; min-width: 0; }
+.names div + div { border-left: 1px solid var(--line); }
+.names b { display: block; font: 800 19px/1.05 var(--display); letter-spacing: 0.03em; text-transform: uppercase; }
+.names small { display: block; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
+.names span { display: block; font-size: 13px; line-height: 1.35; margin-top: 6px; color: #d7ddf6; }
+.hornets .names b { color: var(--hornet); }
+.vipers .names b { color: #ff7b72; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.notes div { background: var(--panel); border-radius: 10px; padding: 14px 16px; }
+.notes h3 { margin: 0 0 4px; font: 800 18px/1.1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--hornet); }
+.notes p { margin: 0; font-size: 14px; color: #d7ddf6; }
+.gfx { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Look &amp; feel mock · drawn live with <span id="gfx">WebGL</span></p>
+    <h1>Hero <span>Squads</span></h1>
+    <p>Small bodies, big heads, ink outlines and a cartoon arena. Every player is a hero with their own look, and each look hints at the special power they could get later.</p>
+  </header>
+
+  <section>
+    <h2>On the court, at phone size</h2>
+    <p>Captain Comb jumps over the 6-metre line for a shot. The Vipers' wall throws its arms up and Coil gets ready to dive. This is the in-game zoom on a phone held sideways.</p>
+    <div class="phone"><canvas id="court"></canvas></div>
+  </section>
+
+  <section>
+    <h2>Close-up of the same moment</h2>
+    <p>The same scene zoomed in, so you can see the details that the phone view squeezes into a few pixels.</p>
+    <canvas id="zoom" style="aspect-ratio: 16 / 7"></canvas>
+  </section>
+
+  <section class="hornets">
+    <h2><span class="h">Hornets</span> · your squad</h2>
+    <p>Yellow and navy bee heroes: antennae, lightning bolts, honeycomb emblems and capes.</p>
+    <div class="scroll"><div class="sheet"><canvas id="sq0"></canvas><div class="names" id="n0"></div></div></div>
+  </section>
+
+  <section class="vipers">
+    <h2><span class="v">Vipers</span> · the rivals</h2>
+    <p>Red and plum snake heroes: masks, hoods, fangs and glowing eyes.</p>
+    <div class="scroll"><div class="sheet"><canvas id="sq1"></canvas><div class="names" id="n1"></div></div></div>
+  </section>
+
+  <section>
+    <h2>One hero, every pose</h2>
+    <p>Captain Comb and Hive in the poses the game uses: facing you, running, from behind, winding up a jump shot, blocking, and a keeper's dive.</p>
+    <div class="scroll"><div class="sheet six"><canvas id="poses"></canvas><div class="names" id="n2"></div></div></div>
+  </section>
+
+  <section class="notes">
+    <div><h3>Proportions</h3><p>The head is about half the hero's height. Bodies are short and round, with stubby arms and legs and big shoes. Pivots and keepers are wider, and wings are smaller and quicker.</p></div>
+    <div><h3>Ink style</h3><p>Every shape gets a dark outline that stays the same thickness at any zoom, so heroes stay readable even when they're tiny on a phone.</p></div>
+    <div><h3>Court</h3><p>A bright blue court with orange goal areas, thick white lines, a ball logo in the centre, advertising boards and a bouncing cartoon crowd.</p></div>
+    <div><h3>Powers ready</h3><p>Each hero's look matches a planned power: Zip's bolt for a speed dash, Coil's coils for longer reach. These connect to the power slot that's already in the game.</p></div>
+  </section>
+</main>
+
+<script type="module">
+import { createRenderer } from '../js/render.js';
+import { SQUADS, TP, drawHero, drawToonArena, drawToonGoalBack, toonPost, drawToonBall, drawToonRef } from '../js/toon.js';
+import { dPoint, POST_HI } from '../js/court.js';
+
+const H0 = SQUADS[0], V = SQUADS[1];
+const hero = (sq, role) => sq.heroes.find((h) => h.role === role);
+
+// ---------------------------------------------------------------- the court moment
+function scene(t) {
+  const P = [];
+  const add = (sq, role, x, y, extra = {}) => P.push({ h: hero(sq, role), kit: sq.kit, p: { x, y, z: 0, vx: 0, vy: 0, face: Math.PI, phase: 0, gk: role === 'GK', ...extra.p }, o: { t, ...extra.o } });
+  // Vipers 6-0 wall defending the left goal
+  const ts = { LW: 0.93, LB: 0.75, CB: 0.6, PV: 0.44, RB: 0.26, RW: 0.07 };
+  for (const [r, tt] of Object.entries(ts)) {
+    const q = dPoint(0, 6.55, tt);
+    const near = r === 'CB' || r === 'PV';
+    add(V, r, q.x, q.y, { p: { face: 0, stance: near ? 1 : 0 }, o: { pose: near ? 'block' : null } });
+  }
+  add(V, 'GK', 0.85, 10.3, { p: { face: 0.3, diveDir: 1 }, o: { pose: 'ready' } });
+  // Hornets attack
+  const jump = 0.42 + Math.sin(t * 2) * 0.04;
+  add(H0, 'CB', 7.3, 10.9, { p: { z: jump, face: Math.PI }, o: { pose: 'windup' } });
+  add(H0, 'PV', 6.45, 8.6, { p: { face: Math.PI * 0.5 } });
+  const run = (sp, dir) => ({ vx: Math.cos(dir) * sp, vy: Math.sin(dir) * sp, phase: t * sp * 3.1, face: dir });
+  add(H0, 'LW', 2.2 + Math.sin(t * 0.9) * 0.1, 17.4, { p: run(4.5, -Math.PI * 0.8) });
+  add(H0, 'LB', 10.4, 15.2, { p: run(3, -Math.PI * 0.85) });
+  add(H0, 'RB', 10.6, 5.1, { p: { face: Math.PI * 0.75 } });
+  add(H0, 'RW', 1.6, 2.4, { p: run(3.5, Math.PI * 0.75) });
+  add(H0, 'GK', 30, 10, { p: { face: Math.PI } });
+  return P;
+}
+
+function drawScene(R, t) {
+  drawToonArena(R, t, 0);
+  drawToonGoalBack(R, 0);
+  drawToonGoalBack(R, 40);
+  const P = scene(t);
+  const ents = P.map((e) => ({ y: e.p.y, e }));
+  ents.push({ y: POST_HI, post: 0 }, { y: POST_HI, post: 40 });
+  const refs = [{ x: 12, y: -0.9, vx: 0, vy: 0, face: Math.PI / 2, phase: 0 }, { x: 1.4, y: -0.9, vx: 0, vy: 0, face: Math.PI / 2, phase: 0 }];
+  refs.forEach((f) => ents.push({ y: f.y, ref: f }));
+  const shooter = P.find((e) => e.h.name === 'Captain Comb');
+  ents.push({ y: shooter.p.y + 0.01, ball: shooter });
+  ents.sort((a, b) => a.y - b.y);
+  for (const x of ents) {
+    if (x.e) drawHero(R, x.e.h, x.e.kit, x.e.p, x.e.o);
+    else if (x.ref) drawToonRef(R, x.ref, false, t);
+    else if (x.ball) {
+      const p = x.ball.p;
+      drawToonBall(R, p.x + 0.44, p.y + 0.02, p.z + 1.37, 0);
+    } else toonPost(R, x.post, POST_HI);
+  }
+}
+
+// ---------------------------------------------------------------- sheets
+function sheet(R, list, t, cols) {
+  const c = R.canvas;
+  const colW = c.width / cols;
+  const ppm = Math.min(c.height / 1.75, colW / 0.95);
+  const worldW = c.width / ppm, viewH = c.height / ppm;
+  const step = worldW / cols;
+  // feet line sits at 84% of the sheet height
+  R.begin(worldW / 2 - step / 2, -(0.84 - 0.5) * viewH, ppm, [0.094, 0.133, 0.29, 1]);
+  list.forEach((it, i) => {
+    const x = i * step;
+    R.ellipse(x, 0.02, 0.42, 0.13, [1, 1, 1, 0.06]);
+    drawHero(R, it.h, it.kit, { x, y: 0, z: 0, vx: 0, vy: 0, face: Math.PI / 2, phase: 0, gk: it.h.role === 'GK', ...it.p }, { t, ...it.o });
+    if (it.ball) drawToonBall(R, it.ball[0] + x, it.ball[1], it.ball[2], t);
+  });
+  R.end();
+}
+
+const poses = (t) => {
+  const cap = hero(H0, 'CB'), gk = hero(H0, 'GK');
+  return [
+    { h: cap, kit: H0.kit, p: { face: Math.PI / 2 }, o: {}, label: ['Facing you', 'Idle'], desc: 'Waiting for the pass, gently bobbing.' },
+    { h: cap, kit: H0.kit, p: { face: 0, vx: 4, vy: 0, phase: t * 12 }, o: { hasBall: true, dribbling: true }, ball: [0.26, 0, 0.15 + Math.abs(Math.sin(t * 8.5)) * 0.9], label: ['Running', 'Dribble'], desc: 'Cape flutters while he bounces the ball.' },
+    { h: cap, kit: H0.kit, p: { face: -Math.PI / 2 }, o: {}, label: ['From behind', 'Back view'], desc: 'Cape and hair from behind, heading upfield.' },
+    { h: cap, kit: H0.kit, p: { face: 0, z: 0.4 + Math.sin(t * 2) * 0.05, charging: true }, o: {}, ball: [-0.44, 0, 1.77 + Math.sin(t * 2) * 0.05], label: ['Jump shot', 'Wind-up'], desc: 'In the air, arm cocked, shouting.' },
+    { h: hero(V, 'CB'), kit: V.kit, p: { face: Math.PI / 2, stance: 1 }, o: { pose: 'block' }, label: ['Venom', 'Block'], desc: 'Arms up to block the shot. Glowing eyes.' },
+    { h: gk, kit: H0.kit, p: { face: Math.PI / 2, gk: true, diveDir: -1 }, o: { pose: 'dive' }, label: ['Hive', 'Keeper dive'], desc: 'Big gloves, stretching for the top corner.' },
+  ];
+};
+
+// ---------------------------------------------------------------- boot
+const canvases = ['court', 'zoom', 'sq0', 'sq1', 'poses'].map((id) => document.getElementById(id));
+const R = canvases.map((c) => createRenderer(c));
+document.getElementById('gfx').textContent = R[0].kind;
+const names = (id, items) => {
+  document.getElementById(id).innerHTML = items.map((x) => `<div><b>${x[0]}</b><small>${x[1]}</small><span>${x[2]}</span></div>`).join('');
+};
+names('n0', H0.heroes.map((h) => [h.name, h.pos, h.power]));
+names('n1', V.heroes.map((h) => [h.name, h.pos, h.power]));
+names('n2', poses(0).map((x) => [x.label[0], x.label[1], x.desc]));
+
+function fit() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  R.forEach((r) => {
+    const c = r.canvas;
+    c.width = Math.round(c.clientWidth * dpr);
+    c.height = Math.round(c.clientHeight * dpr);
+  });
+}
+addEventListener('resize', fit);
+fit();
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let start = performance.now();
+function frame(now) {
+  const t = reduce ? 1.2 : (now - start) / 1000;
+  // phone view: same zoom as the game (court height across ~12.5 m)
+  let c = R[0].canvas;
+  R[0].begin(10.8, 9.2, c.height / 12.5, TP.clear); drawScene(R[0], t); R[0].end();
+  c = R[1].canvas;
+  R[1].begin(5.2, 10.4, c.height / 6.2, TP.clear); drawScene(R[1], t); R[1].end();
+  sheet(R[2], H0.heroes.map((h) => ({ h, kit: H0.kit, p: {}, o: {} })), t, 7);
+  sheet(R[3], V.heroes.map((h) => ({ h, kit: V.kit, p: {}, o: {} })), t, 7);
+  sheet(R[4], poses(t), t, 6);
+  if (!reduce) requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

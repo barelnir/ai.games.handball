@@ -1,7 +1,7 @@
 {
   "name": "Handball Seven",
   "short_name": "Handball 7",
-  "description": "A 2D handball game for phone and desktop, rendered with WebGPU.",
+  "description": "A 2D handball game for phone and desktop, rendered with WebGL.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

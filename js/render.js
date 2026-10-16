@@ -1,72 +1,91 @@
 // Shape renderer with two backends that share one API:
-//   WebGPU  – every shape is an instanced quad shaded by a signed-distance function (one draw call per frame)
-//   Canvas2D – fallback for browsers/devices without WebGPU
+//   WebGL 2  – every shape is an instanced quad shaded by a signed-distance function (one draw call per frame)
+//   Canvas2D – fallback for browsers/devices without WebGL 2
 // All coordinates are in world metres; the camera maps them to pixels.
+// Primitives: ellipse, rounded rect, ring, line (capsule) and triangle (optionally rounded).
 
-const KIND_ELLIPSE = 0, KIND_RECT = 1, KIND_RING = 2, KIND_LINE = 3;
+const KIND_ELLIPSE = 0, KIND_RECT = 1, KIND_RING = 2, KIND_LINE = 3, KIND_TRI = 4;
 const FLOATS = 12; // ax ay bx by | r g b a | kind p1 p2 p3
 
-const WGSL = /* wgsl */ `
-struct Uni { cam: vec2f, res: vec2f, ppm: f32 };
-@group(0) @binding(0) var<uniform> u: Uni;
+const VS = `#version 300 es
+precision highp float;
+layout(location = 0) in vec2 a_a;
+layout(location = 1) in vec2 a_b;
+layout(location = 2) in vec4 a_col;
+layout(location = 3) in vec4 a_prm;
+uniform vec2 u_cam;
+uniform vec2 u_res;
+uniform float u_ppm;
+out vec2 v_w;
+flat out vec2 v_a;
+flat out vec2 v_b;
+flat out vec4 v_col;
+flat out vec4 v_prm;
+void main() {
+  int k = int(a_prm.x + 0.5);
+  float m = 1.5 / u_ppm;
+  vec2 lo, hi;
+  if (k == 0) { lo = a_a - a_b; hi = a_a + a_b; }
+  else if (k == 1) { float r = length(a_b); lo = a_a - vec2(r); hi = a_a + vec2(r); }
+  else if (k == 2) { lo = a_a - a_b - vec2(a_prm.y); hi = a_a + a_b + vec2(a_prm.y); }
+  else if (k == 3) { lo = min(a_a, a_b) - vec2(a_prm.y); hi = max(a_a, a_b) + vec2(a_prm.y); }
+  else { vec2 c = a_prm.yz; lo = min(min(a_a, a_b), c) - vec2(a_prm.w); hi = max(max(a_a, a_b), c) + vec2(a_prm.w); }
+  lo -= vec2(m); hi += vec2(m);
+  int vi = gl_VertexID;
+  vec2 cr = vec2((vi == 1 || vi == 4 || vi == 5) ? 1.0 : 0.0, (vi == 2 || vi == 3 || vi == 5) ? 1.0 : 0.0);
+  vec2 w = mix(lo, hi, cr);
+  vec2 p = (w - u_cam) * u_ppm / (u_res * 0.5);
+  gl_Position = vec4(p.x, -p.y, 0.0, 1.0);
+  v_w = w; v_a = a_a; v_b = a_b; v_col = a_col; v_prm = a_prm;
+}`;
 
-struct VOut {
-  @builtin(position) pos: vec4f,
-  @location(0) w: vec2f,
-  @location(1) a: vec2f,
-  @location(2) b: vec2f,
-  @location(3) col: vec4f,
-  @location(4) prm: vec4f,
-};
-
-@vertex
-fn vs(@builtin(vertex_index) vi: u32,
-      @location(0) a: vec2f, @location(1) b: vec2f,
-      @location(2) col: vec4f, @location(3) prm: vec4f) -> VOut {
-  let k = i32(round(prm.x));
-  let m = 1.5 / u.ppm;
-  var lo: vec2f; var hi: vec2f;
-  if (k == 0) { lo = a - b; hi = a + b; }
-  else if (k == 1) { let r = length(b); lo = a - vec2f(r); hi = a + vec2f(r); }
-  else if (k == 2) { lo = a - b - vec2f(prm.y); hi = a + b + vec2f(prm.y); }
-  else { lo = min(a, b) - vec2f(prm.y); hi = max(a, b) + vec2f(prm.y); }
-  lo -= vec2f(m); hi += vec2f(m);
-  var corners = array<vec2f, 6>(vec2f(0,0), vec2f(1,0), vec2f(0,1), vec2f(0,1), vec2f(1,0), vec2f(1,1));
-  let c = corners[vi];
-  let w = mix(lo, hi, c);
-  let p = (w - u.cam) * u.ppm / (u.res * 0.5);
-  var o: VOut;
-  o.pos = vec4f(p.x, -p.y, 0.0, 1.0);
-  o.w = w; o.a = a; o.b = b; o.col = col; o.prm = prm;
-  return o;
+const FS = `#version 300 es
+precision highp float;
+uniform float u_ppm;
+in vec2 v_w;
+flat in vec2 v_a;
+flat in vec2 v_b;
+flat in vec4 v_col;
+flat in vec4 v_prm;
+out vec4 o;
+float sdTri(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
+  vec2 e0 = p1 - p0, e1 = p2 - p1, e2 = p0 - p2;
+  vec2 v0 = p - p0, v1 = p - p1, v2 = p - p2;
+  vec2 q0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+  vec2 q1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+  vec2 q2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+  float s = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 d = min(min(vec2(dot(q0, q0), s * (v0.x * e0.y - v0.y * e0.x)),
+                   vec2(dot(q1, q1), s * (v1.x * e1.y - v1.y * e1.x))),
+                   vec2(dot(q2, q2), s * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
 }
-
-@fragment
-fn fs(i: VOut) -> @location(0) vec4f {
-  let k = i32(round(i.prm.x));
-  var d: f32;
+void main() {
+  int k = int(v_prm.x + 0.5);
+  float d;
   if (k == 0) {
-    let q = (i.w - i.a) / i.b;
-    d = (length(q) - 1.0) * min(i.b.x, i.b.y);
+    vec2 q = (v_w - v_a) / v_b;
+    d = (length(q) - 1.0) * min(v_b.x, v_b.y);
   } else if (k == 1) {
-    let cs = cos(i.prm.z); let sn = sin(i.prm.z);
-    let q0 = i.w - i.a;
-    let q = vec2f(cs * q0.x + sn * q0.y, -sn * q0.x + cs * q0.y);
-    let r = i.prm.y;
-    let dd = abs(q) - i.b + vec2f(r);
-    d = length(max(dd, vec2f(0.0))) + min(max(dd.x, dd.y), 0.0) - r;
+    float cs = cos(v_prm.z), sn = sin(v_prm.z);
+    vec2 q0 = v_w - v_a;
+    vec2 q = vec2(cs * q0.x + sn * q0.y, -sn * q0.x + cs * q0.y);
+    float r = v_prm.y;
+    vec2 dd = abs(q) - v_b + vec2(r);
+    d = length(max(dd, vec2(0.0))) + min(max(dd.x, dd.y), 0.0) - r;
   } else if (k == 2) {
-    let q = (i.w - i.a) / i.b;
-    d = abs((length(q) - 1.0) * min(i.b.x, i.b.y)) - i.prm.y;
+    vec2 q = (v_w - v_a) / v_b;
+    d = abs((length(q) - 1.0) * min(v_b.x, v_b.y)) - v_prm.y;
+  } else if (k == 3) {
+    vec2 pa = v_w - v_a, ba = v_b - v_a;
+    float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
+    d = length(pa - ba * h) - v_prm.y;
   } else {
-    let pa = i.w - i.a; let ba = i.b - i.a;
-    let h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
-    d = length(pa - ba * h) - i.prm.y;
+    d = sdTri(v_w, v_a, v_b, v_prm.yz) - v_prm.w;
   }
-  let alpha = clamp(0.5 - d * u.ppm, 0.0, 1.0) * i.col.a;
-  return vec4f(i.col.rgb * alpha, alpha);
-}
-`;
+  float a = clamp(0.5 - d * u_ppm, 0.0, 1.0) * v_col.a;
+  o = vec4(v_col.rgb * a, a);
+}`;
 
 class Base {
   constructor(canvas) {
@@ -86,68 +105,66 @@ class Base {
   }
 }
 
-class GPURenderer extends Base {
-  constructor(canvas, device, ctx, format) {
+function compile(gl, type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+
+class GLRenderer extends Base {
+  constructor(canvas, gl) {
     super(canvas);
-    this.kind = 'WebGPU';
-    this.device = device; this.ctx = ctx; this.format = format;
-    const module = device.createShaderModule({ code: WGSL });
-    this.module = module;
-    this.pipeline = device.createRenderPipeline({
-      layout: 'auto',
-      vertex: {
-        module, entryPoint: 'vs',
-        buffers: [{
-          arrayStride: FLOATS * 4, stepMode: 'instance',
-          attributes: [
-            { shaderLocation: 0, offset: 0, format: 'float32x2' },
-            { shaderLocation: 1, offset: 8, format: 'float32x2' },
-            { shaderLocation: 2, offset: 16, format: 'float32x4' },
-            { shaderLocation: 3, offset: 32, format: 'float32x4' },
-          ],
-        }],
-      },
-      fragment: {
-        module, entryPoint: 'fs',
-        targets: [{
-          format,
-          blend: {
-            color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-            alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-          },
-        }],
-      },
-      primitive: { topology: 'triangle-list' },
-    });
-    this.uni = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    this.bind = device.createBindGroup({
-      layout: this.pipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: { buffer: this.uni } }],
-    });
-    this.uniData = new Float32Array(8);
-    this.alloc(4096);
+    this.kind = 'WebGL 2';
+    this.gl = gl;
+    this.data = new Float32Array(4096 * FLOATS);
+    this.cap = 4096;
+    this.init();
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; });
+    canvas.addEventListener('webglcontextrestored', () => { this.lost = false; this.init(); });
   }
-  alloc(cap) {
-    this.cap = cap;
-    this.data = new Float32Array(cap * FLOATS);
-    if (this.buf) this.buf.destroy();
-    this.buf = this.device.createBuffer({ size: this.data.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+  init() {
+    const gl = this.gl;
+    const prog = gl.createProgram();
+    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VS));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FS));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error(gl.getProgramInfoLog(prog));
+    this.prog = prog;
+    this.uCam = gl.getUniformLocation(prog, 'u_cam');
+    this.uRes = gl.getUniformLocation(prog, 'u_res');
+    this.uPpm = gl.getUniformLocation(prog, 'u_ppm');
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+    this.buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+    gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW);
+    this.gpuBytes = this.data.byteLength;
+    const stride = FLOATS * 4;
+    [[0, 2, 0], [1, 2, 8], [2, 4, 16], [3, 4, 32]].forEach(([loc, size, off]) => {
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, off);
+      gl.vertexAttribDivisor(loc, 1);
+    });
+    gl.bindVertexArray(null);
   }
   begin(cx, cy, ppm, clear) {
     this.setView(cx, cy, ppm);
     this.n = 0;
     this.clear = clear;
   }
-  push(ax, ay, bx, by, c, kind, p1, p2) {
+  push(ax, ay, bx, by, c, kind, p1, p2, p3 = 0) {
     if (this.n >= this.cap) {
       const old = this.data;
-      this.alloc(this.cap * 2);
+      this.cap *= 2;
+      this.data = new Float32Array(this.cap * FLOATS);
       this.data.set(old);
     }
     const d = this.data, o = this.n++ * FLOATS;
     d[o] = ax; d[o + 1] = ay; d[o + 2] = bx; d[o + 3] = by;
     d[o + 4] = c[0]; d[o + 5] = c[1]; d[o + 6] = c[2]; d[o + 7] = c[3];
-    d[o + 8] = kind; d[o + 9] = p1; d[o + 10] = p2; d[o + 11] = 0;
+    d[o + 8] = kind; d[o + 9] = p1; d[o + 10] = p2; d[o + 11] = p3;
   }
   ellipse(x, y, rx, ry, c) {
     if (!this.visible(x - rx, y - ry, x + rx, y + ry)) return;
@@ -166,29 +183,33 @@ class GPURenderer extends Base {
     if (!this.visible(Math.min(x1, x2) - hw, Math.min(y1, y2) - hw, Math.max(x1, x2) + hw, Math.max(y1, y2) + hw)) return;
     this.push(x1, y1, x2, y2, c, KIND_LINE, hw, 0);
   }
+  tri(x1, y1, x2, y2, x3, y3, c, round = 0) {
+    if (!this.visible(Math.min(x1, x2, x3) - round, Math.min(y1, y2, y3) - round, Math.max(x1, x2, x3) + round, Math.max(y1, y2, y3) + round)) return;
+    this.push(x1, y1, x2, y2, c, KIND_TRI, x3, y3, round);
+  }
   end() {
-    const { device } = this;
-    const u = this.uniData;
-    u[0] = this.cam.x; u[1] = this.cam.y; u[2] = this.canvas.width; u[3] = this.canvas.height; u[4] = this.cam.ppm;
-    device.queue.writeBuffer(this.uni, 0, u);
-    if (this.n) device.queue.writeBuffer(this.buf, 0, this.data, 0, this.n * FLOATS);
-    const enc = device.createCommandEncoder();
+    const gl = this.gl;
+    if (this.lost) return;
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     const c = this.clear;
-    const pass = enc.beginRenderPass({
-      colorAttachments: [{
-        view: this.ctx.getCurrentTexture().createView(),
-        clearValue: { r: c[0], g: c[1], b: c[2], a: 1 },
-        loadOp: 'clear', storeOp: 'store',
-      }],
-    });
-    if (this.n) {
-      pass.setPipeline(this.pipeline);
-      pass.setBindGroup(0, this.bind);
-      pass.setVertexBuffer(0, this.buf);
-      pass.draw(6, this.n);
+    gl.clearColor(c[0], c[1], c[2], 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!this.n) return;
+    gl.useProgram(this.prog);
+    gl.uniform2f(this.uCam, this.cam.x, this.cam.y);
+    gl.uniform2f(this.uRes, this.canvas.width, this.canvas.height);
+    gl.uniform1f(this.uPpm, this.cam.ppm);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+    if (this.data.byteLength > this.gpuBytes) {
+      gl.bufferData(gl.ARRAY_BUFFER, this.data.byteLength, gl.DYNAMIC_DRAW);
+      this.gpuBytes = this.data.byteLength;
     }
-    pass.end();
-    device.queue.submit([enc.finish()]);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.data, 0, this.n * FLOATS);
+    gl.bindVertexArray(this.vao);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.n);
+    gl.bindVertexArray(null);
   }
 }
 
@@ -216,6 +237,7 @@ class CanvasRenderer extends Base {
     g.fillRect(0, 0, this.canvas.width, this.canvas.height);
     g.setTransform(ppm, 0, 0, ppm, this.canvas.width / 2 - cx * ppm, this.canvas.height / 2 - cy * ppm);
     g.lineCap = 'round';
+    g.lineJoin = 'round';
   }
   ellipse(x, y, rx, ry, c) {
     if (!this.visible(x - rx, y - ry, x + rx, y + ry)) return;
@@ -259,37 +281,30 @@ class CanvasRenderer extends Base {
     g.lineTo(x2, y2);
     g.stroke();
   }
+  tri(x1, y1, x2, y2, x3, y3, c, round = 0) {
+    if (!this.visible(Math.min(x1, x2, x3) - round, Math.min(y1, y2, y3) - round, Math.max(x1, x2, x3) + round, Math.max(y1, y2, y3) + round)) return;
+    const g = this.g;
+    g.fillStyle = css(c);
+    g.beginPath();
+    g.moveTo(x1, y1); g.lineTo(x2, y2); g.lineTo(x3, y3); g.closePath();
+    g.fill();
+    if (round > 0) { g.strokeStyle = css(c); g.lineWidth = round * 2; g.stroke(); }
+  }
   end() {}
 }
 
-export async function createRenderer(canvas, { preferGPU = true, onLost } = {}) {
-  if (preferGPU && typeof navigator !== 'undefined' && navigator.gpu) {
+export function createRenderer(canvas, { preferGL = true } = {}) {
+  if (preferGL) {
     try {
-      const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
-      if (adapter) {
-        const device = await adapter.requestDevice();
-        const ctx = canvas.getContext('webgpu');
-        if (ctx) {
-          const format = navigator.gpu.getPreferredCanvasFormat();
-          ctx.configure({ device, format, alphaMode: 'opaque' });
-          const r = new GPURenderer(canvas, device, ctx, format);
-          const info = r.module.getCompilationInfo ? await r.module.getCompilationInfo() : null;
-          if (info && info.messages.some((m) => m.type === 'error')) {
-            console.warn('WGSL errors', info.messages);
-          } else {
-            device.lost.then((e) => { if (e.reason !== 'destroyed' && onLost) onLost(e); });
-            return r;
-          }
-        }
-      }
+      const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: true, powerPreference: 'high-performance' });
+      if (gl) return new GLRenderer(canvas, gl);
     } catch (e) {
-      console.warn('WebGPU unavailable, using Canvas 2D', e);
+      console.warn('WebGL 2 unavailable, using Canvas 2D', e);
     }
   }
-  // A canvas that already has a webgpu context cannot give out a 2d one, so swap it.
+  // A canvas that already has a webgl context cannot give out a 2d one, so swap it.
   let c = canvas;
-  const ctx2d = c.getContext('2d', { alpha: false });
-  if (!ctx2d) {
+  if (!c.getContext('2d', { alpha: false })) {
     c = canvas.cloneNode(false);
     canvas.replaceWith(c);
   }

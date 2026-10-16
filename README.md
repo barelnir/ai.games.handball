@@ -1,6 +1,6 @@
 # Handball Seven
 
-A 2D handball game in plain HTML and JavaScript, drawn with **WebGPU** and playable on a phone or a desktop browser. No build step and no libraries.
+A 2D handball game in plain HTML and JavaScript, drawn with **WebGL** and playable on a phone or a desktop browser. No build step and no libraries.
 
 You play the **Hornets** (yellow) against the **Vipers** (red), 7 v 7 on a 40 × 20 m court with real IHF markings, two referees and a crowd.
 
@@ -38,7 +38,7 @@ css/style.css       Styling
 js/main.js          Boot, game loop (fixed 60 Hz), camera, HUD, menus
 js/game.js          The match: players, ball physics, rules, referees, AI (no DOM; runs in Node too)
 js/court.js         Court geometry in metres (goal area "D", 9 m line, 7 m mark…)
-js/render.js        Renderer: WebGPU (instanced SDF shapes, one draw call) with a Canvas 2D fallback
+js/render.js        Renderer: WebGL 2 (instanced SDF shapes, one draw call) with a Canvas 2D fallback
 js/draw.js          Arena, court, goals, players, referees and ball, built from 4 primitives
 js/input.js         Keyboard + multi-touch joystick and buttons
 js/audio.js         Synthesised whistle, ball and crowd sounds (WebAudio)
@@ -47,7 +47,7 @@ sw.js, manifest     PWA: install to the home screen, works offline
 tests/sim.mjs       Headless AI-vs-AI matches (`npm test`)
 ```
 
-**Graphics:** every shape (ellipse, rounded rectangle, ring, capsule line) is one instance of a quad. A WGSL fragment shader shades it with an anti-aliased signed-distance function, so the whole frame is a single `draw(6, n)` call. Browsers without WebGPU automatically use the Canvas 2D renderer, which has the same API. The renderer in use is shown on the menu screen.
+**Graphics:** every shape (ellipse, rounded rectangle, ring, capsule line) is one instance of a quad. A GLSL fragment shader shades it with an anti-aliased signed-distance function, so the whole frame is a single `drawArraysInstanced(…, 6, n)` call. Browsers without WebGL 2 automatically use the Canvas 2D renderer, which has the same API. The renderer in use is shown on the menu screen.
 
 **Figures:** small upright "3/4 view" players drawn on a top-down court. Height (jumps, ball arcs) lifts things up the screen. Each player has a random skin tone, hair colour and hairstyle, animated legs and arms, and poses for shooting, stealing, blocking and goalkeeper dives.
 
