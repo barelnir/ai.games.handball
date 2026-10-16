@@ -83,6 +83,7 @@ const E = (R, x, y, rx, ry, c) => { R.ellipse(x, y, rx + O, ry + O, TP.ink); R.e
 const B = (R, x, y, hw, hh, c, rad = 0, rot = 0) => { R.rect(x, y, hw + O, hh + O, TP.ink, rot, rad + O); R.rect(x, y, hw, hh, c, rot, rad); };
 const L = (R, x1, y1, x2, y2, hw, c) => { R.line(x1, y1, x2, y2, hw + O, TP.ink); R.line(x1, y1, x2, y2, hw, c); };
 const T = (R, ax, ay, bx, by, cx, cy, c, r = 0) => { R.tri(ax, ay, bx, by, cx, cy, TP.ink, r + O); R.tri(ax, ay, bx, by, cx, cy, c, r); };
+export const ink = { E: (...a) => E(...a), B: (...a) => B(...a), L: (...a) => L(...a), T: (...a) => T(...a), get O() { return O; } };
 export function setInk(R) { O = Math.max(0.016, 1.35 / R.cam.ppm); }
 
 // ------------------------------------------------------------------ hero figure
@@ -237,6 +238,12 @@ export function drawHero(R, h, kit, p, o = {}) {
 
   drawHairFront(R, h, X, headY, HR, hair, skin, dirX, side, t, kit);
   if (has('headband')) B(R, X + (side ? dirX * 0.01 : 0), headY - 0.12, HR * 0.96, 0.028, trim, 0.02);
+  if (has('glasses')) {
+    const fr = col('#2a1712');
+    for (const [ex, s] of eyes) R.ring(ex, ey + 0.005, 0.088 * s, 0.075 * s, 0.017, fr);
+    if (side) R.line(eyes[0][0] - dirX * 0.09, ey - 0.01, X - dirX * HR * 0.85, ey - 0.03, 0.014, fr);
+    else R.line(eyes[0][0] + 0.088, ey - 0.005, eyes[1][0] - 0.088, ey - 0.005, 0.016, fr);
+  }
   if (has('goggles')) {
     const gy = headY - 0.14;
     R.line(X - HR, gy, X + HR, gy, 0.022, TP.ink);
@@ -301,6 +308,18 @@ function drawHairFront(R, h, X, headY, HR, hair, skin, dirX, side, t, kit) {
     case 'buzz':
       E(R, X, headY - HR * 0.6, HR - 0.01, HR * 0.42, hair);
       break;
+    case 'swoop': {
+      // short sides, big tufty top swept up and to one side
+      const d = side ? dirX : 1;
+      cap(0);
+      for (let i = 0; i < 4; i++) {
+        const bx = X - 0.15 + i * 0.1;
+        T(R, bx - 0.07, top + 0.08, bx + 0.07, top + 0.06, bx + d * 0.08, top - 0.1 - (i === 1 || i === 2 ? 0.04 : 0), hair, 0.02);
+      }
+      R.ellipse(X, headY - HR * 0.6, HR * 0.95, HR * 0.42, hair);
+      R.line(X - 0.1, top + 0.04, X + 0.05 * d, top - 0.03, 0.012, col('#a07a50'));
+      break;
+    }
     case 'bald':
       R.ellipse(X - 0.08, top + 0.08, 0.06, 0.035, col('#ffffff', 0.35));
       break;

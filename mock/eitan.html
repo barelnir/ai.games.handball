@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eitan Hero Picks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@500;700;900&display=swap">
+<style>
+/* Layout: four numbered option cards (2 × 2, one column on phones); each has the live POWER portrait and the small in-game hero. */
+:root {
+  --night: #101833;
+  --panel: #18224a;
+  --ink: #f3f5ff;
+  --muted: #b3bde3;
+  --hornet: #ffd23f;
+  --outline: #1a1430;
+  --display: 'Rubik', 'Lilita One', 'Arial Rounded MT Bold', sans-serif;
+  --body: 'Rubik', 'Segoe UI', Arial, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink);
+  font: 500 16px/1.5 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px;
+}
+main { max-width: 1000px; margin: 0 auto; display: grid; gap: 22px; }
+.eyebrow { margin: 0; color: var(--hornet); font-weight: 700; font-size: 14px; }
+h1 { margin: 2px 0 6px; font: 900 clamp(38px, 8vw, 64px)/1 var(--display); text-wrap: balance; }
+h1 span { color: var(--hornet); }
+header p { margin: 0; color: var(--muted); max-width: 60ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); gap: 18px; }
+.card { background: var(--panel); border-radius: 18px; overflow: hidden; border: 3px solid var(--outline); display: grid; }
+.shot { position: relative; }
+.shot canvas { display: block; width: 100%; aspect-ratio: 1 / 1; }
+.num {
+  position: absolute; top: 12px; inset-inline-start: 12px;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--hornet); color: var(--outline);
+  font: 400 26px/1 'Lilita One', var(--display);
+  border: 3px solid var(--outline);
+}
+.burst {
+  position: absolute; bottom: 12px; inset-inline-end: 12px;
+  font: 400 30px/1 'Lilita One', var(--display);
+  color: #fff; background: var(--outline); border: 3px solid #fff; border-radius: 12px;
+  padding: 4px 12px 6px; transform: rotate(-6deg);
+  direction: ltr;
+}
+.info { padding: 14px 16px 6px; }
+.info h2 { margin: 0; font: 900 26px/1.15 var(--display); }
+.info p { margin: 4px 0 0; color: var(--muted); }
+.small { display: flex; align-items: center; gap: 10px; padding: 10px 16px 16px; }
+.small canvas { display: block; width: 190px; height: 92px; border-radius: 10px; flex: none; }
+.small span { color: var(--muted); font-size: 14px; min-width: 0; }
+footer { color: var(--muted); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .burst { transform: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">גיבור חדש להורנטס · Handball Seven</p>
+    <h1>איזה <span>איתן</span> לבחור?</h1>
+    <p>כשלוחצים POWER במשחק, המסך מראה את איתן עם ראש גדול, מסתכל אלינו ומכווץ שרירים. אחרי זה הכוח המיוחד מתחיל. בחרו אפשרות 1, 2, 3 או 4.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+  <footer>הציור מבוסס על התמונה (שיער חום מורם, משקפיים כהים, חיוך קטן). התמונה עצמה לא נשמרת במשחק.</footer>
+</main>
+
+<script type="module">
+import { createRenderer } from '../js/render.js';
+import { drawHero, drawToonBall, TP, col } from '../js/toon.js';
+import { VARIANTS, drawPortrait, eitanHero, eitanKit } from '../js/eitan.js';
+
+const grid = document.getElementById('grid');
+const items = VARIANTS.map((v, i) => {
+  const card = document.createElement('article');
+  card.className = 'card';
+  card.innerHTML = `<div class="shot"><canvas></canvas><div class="num">${i + 1}</div><div class="burst">POWER!</div></div>
+    <div class="info"><h2>${v.name}</h2><p>${v.power}</p></div>
+    <div class="small"><canvas></canvas><span>ככה הוא נראה על המגרש בגודל אמיתי</span></div>`;
+  grid.appendChild(card);
+  const [big, small] = card.querySelectorAll('canvas');
+  return { v, big: createRenderer(big), small: createRenderer(small) };
+});
+
+function fit() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  for (const it of items) for (const r of [it.big, it.small]) {
+    r.canvas.width = Math.round(r.canvas.clientWidth * dpr);
+    r.canvas.height = Math.round(r.canvas.clientHeight * dpr);
+  }
+}
+addEventListener('resize', fit);
+fit();
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const start = performance.now();
+function frame(now) {
+  const t = reduce ? 1 : (now - start) / 1000;
+  for (const { v, big, small } of items) {
+    const c = big.canvas;
+    big.begin(0, -0.75, c.height / 5.2, TP.clear);
+    drawPortrait(big, v, t);
+    big.end();
+    // in-game size: same zoom as the match on a phone (10 m of court top to bottom)
+    const s = small.canvas, ppm = (s.height / 92) * 39;
+    small.begin(1.4, 0.55, ppm, TP.court);
+    small.rect(1.4, 1.2, 4, 0.2, TP.courtAlt);
+    small.line(-1, 1.05, 4, 1.05, 0.05, TP.line);
+    const hero = eitanHero(v), kit = eitanKit(v);
+    drawHero(small, hero, kit, { x: 0.2, y: 0.95, z: 0, vx: 0, vy: 0, face: Math.PI / 2, phase: 0 }, { t });
+    drawHero(small, hero, kit, { x: 1.4, y: 0.95, z: 0, vx: 3.5, vy: 0, face: 0, phase: t * 11 }, { t, hasBall: true, dribbling: true });
+    drawToonBall(small, 1.67, 0.97, 0.19 + Math.abs(Math.sin(t * 7)) * 0.3, t);
+    drawHero(small, hero, kit, { x: 2.65, y: 0.95, z: 0.35, vx: 0, vy: 0, face: 0, phase: 0, charging: true }, { t });
+    drawToonBall(small, 2.21, 0.97, 1.72, 0);
+    small.end();
+  }
+  if (!reduce) requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
