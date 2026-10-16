@@ -151,7 +151,7 @@ async function loudness(page, ms = 1500) {
   await page.evaluate(() => document.querySelector('#play').click());
   for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
   const ht = await page.textContent('#brEyebrow');
-  check(/Half-time/.test(ht), 'half-time screen after the first half', ht);
+  check(/מחצית/.test(ht), 'half-time screen after the first half', ht);
   await page.evaluate(() => document.querySelector('#brNext').click());
   await page.clock.runFor(2000);
   const sides = await page.evaluate(() => handball.game.teams.map((t) => t.defX));
@@ -159,7 +159,7 @@ async function loudness(page, ms = 1500) {
   for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
   const ft = await page.textContent('#brEyebrow');
   const score = await page.textContent('#brScore');
-  check(/Full-time/.test(ft), 'full-time screen at the end', `${ft}, ${score}`);
+  check(/סיום/.test(ft), 'full-time screen at the end', `${ft}, ${score}`);
   check(errors.length === 0, 'no errors during the full match', errors.slice(0, 3).join(' | '));
   await page.close();
 }

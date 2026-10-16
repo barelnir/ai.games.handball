@@ -19,7 +19,8 @@ for (const tp of TEMPLATE_LIST) {
     g.teams[0].energy = 100;
     inp.pPress = true;
     g.step(1 / 60);
-    if (first) check(g.ball.passTo === hero && g.pendingPower === hero, `${tp.label}: POWER makes the carrier pass to the hero`);
+    // either the pass is on its way, or the hero was close enough to catch it already
+    if (first) check((g.ball.passTo === hero && g.pendingPower === hero) || (g.ball.owner === hero && g.ball.power), `${tp.label}: POWER makes the carrier pass to the hero`);
     n = 0;
     while (!g.ball.power && g.pendingPower && n++ < 300) g.step(1 / 60);
     if (!g.ball.power) { first = false; continue; }
