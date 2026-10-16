@@ -308,6 +308,11 @@ function drawHairFront(R, h, X, headY, HR, hair, skin, dirX, side, t, kit) {
     case 'buzz':
       E(R, X, headY - HR * 0.6, HR - 0.01, HR * 0.42, hair);
       break;
+    case 'long': {
+      for (const k of [-1, 1]) E(R, X + k * (HR + 0.01) - (side ? dirX * 0.05 : 0), headY + 0.1, 0.075, 0.2, hair);
+      cap(0);
+      break;
+    }
     case 'fringe': {
       cap(0);
       for (let i = 0; i < 4; i++) {
@@ -362,6 +367,7 @@ function drawHairBack(R, h, X, headY, HR, hair, skin, t) {
   }
   if (s === 'bun') E(R, X, headY - HR - 0.04, 0.1, 0.09, hair);
   if (s === 'pony') L(R, X, headY, X + Math.sin(t * 6) * 0.03, headY + HR + 0.12, 0.05, hair);
+  if (s === 'long') E(R, X, headY + 0.14, HR + 0.03, HR * 0.95, hair);
   if (s === 'pigtails') { E(R, X - HR - 0.04, headY + 0.04, 0.08, 0.09, hair); E(R, X + HR + 0.04, headY + 0.04, 0.08, 0.09, hair); }
 }
 
@@ -668,6 +674,20 @@ export function drawPowerBall(R, kind, x, y, z, t) {
     R.ellipse(x, sy, 0.08, 0.08, ELEC.cyan);
     R.line(x - 0.03, sy - 0.06, x + 0.02, sy, 0.015, ELEC.deep);
     R.line(x + 0.02, sy, x - 0.02, sy + 0.06, 0.015, ELEC.deep);
+  } else if (kind === 'ice') {
+    R.ellipse(x, sy, 0.32, 0.32, col('#cff4ff', 0.3));
+    // ice crystals orbiting the ball
+    for (let i = 0; i < 6; i++) {
+      const a = t * 2 + i * 1.047, r = 0.24;
+      const cx = x + Math.cos(a) * r, cy = sy + Math.sin(a) * r * 0.85;
+      R.tri(cx, cy - 0.07, cx - 0.04, cy, cx + 0.04, cy, col('#e8fbff'));
+      R.tri(cx, cy + 0.07, cx - 0.04, cy, cx + 0.04, cy, col('#9fe3ff'));
+    }
+    E(R, x, sy, 0.13, 0.13, col('#bff0ff'));
+    R.ellipse(x, sy, 0.09, 0.09, col('#e8fbff'));
+    R.line(x - 0.08, sy, x + 0.08, sy, 0.012, col('#5fb6e8'));
+    R.line(x, sy - 0.08, x, sy + 0.08, 0.012, col('#5fb6e8'));
+    R.ellipse(x - 0.04, sy - 0.05, 0.035, 0.025, TP.highlight);
   } else if (kind === 'power') {
     for (let k = 0; k < 2; k++) {
       const f = (t * 2.2 + k * 0.5) % 1;
@@ -712,6 +732,16 @@ export function drawPowerTrail(R, kind, trail, t) {
         R.line(a.x, sy(a) + (i > 1 ? j : 0), b.x, sy(b) - j, 0.03 * (0.4 + k), b2 ? ELEC.white : ELEC.cyan);
       }
     }
+  } else if (kind === 'ice') {
+    for (let i = 1; i < n; i++) {
+      const a = trail[i - 1], b = trail[i], k = i / n;
+      R.line(a.x, sy(a), b.x, sy(b), 0.2 * (0.3 + k * 0.7), col('#9fe3ff', q(k * 0.5)));
+      R.line(a.x, sy(a), b.x, sy(b), 0.06 * (0.3 + k * 0.7), col('#ffffff', q(k)));
+    }
+    for (let i = 0; i < n; i += 3) { // snow sparkles
+      const p = trail[i], k = (i + 1) / n;
+      R.ellipse(p.x + Math.sin(i * 1.9 + t * 3) * 0.15, sy(p) + Math.cos(i * 2.3) * 0.15, 0.03, 0.03, col('#ffffff', q(0.4 + k * 0.6)));
+    }
   } else if (kind === 'power') {
     for (let i = 1; i < n; i++) {
       const a = trail[i - 1], b = trail[i], k = i / n;
@@ -723,4 +753,15 @@ export function drawPowerTrail(R, kind, trail, t) {
       star(R, p.x + Math.sin(i * 2.3) * 0.12, sy(p) + Math.cos(i * 1.7) * 0.12, 0.03 + k * 0.05, col(['#e03a3e', '#ffffff', '#2f4a8a'][i % 3], q(0.3 + k * 0.7)));
     }
   }
+}
+
+// A player frozen in a block of ice (ice power).
+export function drawIceBlock(R, p, t) {
+  setInk(R);
+  const X = p.x, Y = p.y - (p.z || 0) * Z2Y;
+  R.rect(X, Y - 0.62, 0.44, 0.7, col('#bfefff', 0.45), 0, 0.12);
+  R.rect(X, Y - 0.62, 0.44, 0.7, col('#ffffff', 0.12), 0, 0.12);
+  R.line(X - 0.3, Y - 1.1, X - 0.12, Y - 1.25, 0.03, col('#ffffff', 0.8));
+  R.line(X + 0.2, Y - 0.2, X + 0.33, Y - 0.35, 0.025, col('#ffffff', 0.6));
+  R.ring(X, Y - 0.62, 0.45, 0.71, 0.02, col('#e8fbff', 0.7));
 }

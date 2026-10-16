@@ -170,7 +170,7 @@ export class Game {
       this.sp.t += dt;
       if (this.sp.t >= this.sp.setup) {
         this.state = 'play';
-        this.sp.taker.holdT = 0;
+        this.sp.taker.holdT = this.sp.team === this.opts.human ? -2 : 0; // a little extra time for you
         this.emit({ type: 'whistle', n: 1, short: true });
       }
     }
@@ -221,8 +221,7 @@ export class Game {
       const r = this.powers.activate(this.opts.human);
       const pct = Math.floor(this.teams[this.opts.human].energy);
       if (r === 'energy') this.say('הכוח נטען', `${pct}%`, 1.2, 'soft');
-      else if (r === 'ball') this.say('קודם להשיג את הכדור!', '', 1.2, 'soft');
-      else if (r === 'missing') this.say(`${this.profile.nameHe} לא על המגרש`, '', 1.2, 'soft');
+      else if (r === 'armed') this.say('הכוח דרוך!', 'יופעל כשתשיגו את הכדור', 1.6, 'soft');
     }
     if (!c) return;
     if (b.owner === c) {
@@ -274,9 +273,14 @@ export class Game {
       if (p.action && p.actT > (p.action === 'dive' ? 0.7 : 0.45)) p.action = null;
 
       let want = null;
+      if (p.frozen > 0 && !p.gk) { p.vx *= 0.8; p.vy *= 0.8; continue; } // frozen in a block of ice
       if (b.owner === p && p !== this.controlled) this.aiCarrier(p, dt);
-      const locked = this.lock && this.lock.p === p;
-      if (this.state === 'setpiece' || this.state === 'goal') {
+      // your own player is never locked for a human: the joystick always works
+      const locked = this.lock && this.lock.p === p && p !== this.controlled;
+      const stickOn = p === this.controlled && hyp(inp.mx || 0, inp.my || 0) > 0.15;
+      if ((this.state === 'setpiece' || this.state === 'goal') && stickOn) {
+        want = [inp.mx, inp.my, 1];
+      } else if (this.state === 'setpiece' || this.state === 'goal') {
         if (locked || (this.state === 'setpiece' && p === this.sp.taker)) want = [0, 0, 0];
         else want = this.toward(p, this.setupTarget(p), this.state === 'goal' ? 0.55 : 1, 1.6);
       } else if (locked) {
@@ -541,17 +545,17 @@ export class Game {
   aiPowers(dt) {
     const b = this.ball, c = b.owner;
     if (this.opts.rivalPowers === false) return;
-    if (!c || c.gk || b.power || this.pendingPower || c.team === this.opts.human) return;
+    if (!c || c.gk || b.power || this.splash > 0 || c.team === this.opts.human) return;
     const t = this.teams[c.team];
-    if (t.energy < 100 || goalDist(c.x, c.y, this.attackX(t)) > 15) return;
-    if (Math.random() < dt * 0.8) this.powers.activate(c.team);
+    if (t.energy < 100 || goalDist(c.x, c.y, this.attackX(t)) > 18) return;
+    if (Math.random() < dt * 3) this.powers.activate(c.team); // decides within a moment
   }
 
   aiCarrier(p, dt) {
     if (this.state !== 'play') return;
     const ai = p.ai, d = this.diffFor(p);
     // a computer hero holding its powered ball goes for goal
-    if (this.ball.power && this.ball.powerTeam === p.team && p.hero.custom && !(this.lock && this.lock.p === p)) {
+    if (this.ball.power && this.ball.powerTeam === p.team && !p.gk && !(this.lock && this.lock.p === p)) {
       const gd = goalDist(p.x, p.y, this.attackX(this.teamOf(p)));
       if (gd < 10 || p.ballT > 2.4 || (p.carry !== 'drib' && p.holdT > 1.5)) this.shoot(p, null, rnd(0.7, 1));
       return;
@@ -652,10 +656,7 @@ export class Game {
     p.ai.holdLimit = p.gk ? rnd(0.6, 1.4) : rnd(0.7, 2.0);
     p.ai.think = rnd(0.1, 0.3);
     if (prev !== p.team) this.changePossession(p.team);
-    if (this.pendingPower) {
-      if (p === this.pendingPower) this.powers.start(p);
-      else this.pendingPower = null;
-    }
+    this.powers.onCatch(p);
     this.emit({ type: 'catch', team: p.team });
   }
 
@@ -731,7 +732,7 @@ export class Game {
     if (b.power) {
       const fx = this.powers.fxFor(b.powerTeam);
       b.powerShot = true;
-      if (gk && fx.freezeKeeper) gk.frozen = fx.freezeKeeper;
+      if (gk && fx.freezeKeeper) { gk.frozen = fx.freezeKeeper; gk.iced = false; }
       p.effects = p.effects.filter((e) => e.id !== 'power');
       this.emit({ type: 'powershot', kind: b.power, team: p.team });
     }
@@ -739,7 +740,7 @@ export class Game {
   }
 
   tackle(def) {
-    if (def.stealCd > 0) return;
+    if (def.stealCd > 0 || def.frozen > 0) return;
     def.stealCd = 0.8; def.action = 'steal'; def.actT = 0; def.stance = 0.5;
     const b = this.ball, c = b.owner;
     if (!c || c.team === def.team || c.gk) return;
@@ -864,7 +865,9 @@ export class Game {
     this.setOwner(taker);
     taker.carry = 'fresh';
     taker.ai.delay = rnd(0.3, 0.9);
+    // the computer's taker waits for the whistle; yours may move (it's a game for kids)
     this.lock = { p: taker, penalty: type === 'penalty' };
+    if (teamIdx === this.opts.human) taker.holdT = -2;
     const names = { throwoff: 'זריקת פתיחה', freethrow: 'זריקה חופשית', throwin: 'זריקת חוץ', penalty: 'זריקת 7 מטר!' };
     const title = o.title || names[type];
     this.say(title, o.sub || `הכדור ${t.kit.to}`, type === 'penalty' ? 2 : 1.5, o.title ? 'rule' : 'info');
@@ -936,7 +939,7 @@ export class Game {
     if (fx.freezeKeeper) return false; // keeper frozen and blocks don't stop it
     for (const o of def.players) {
       if (fx.unblockable) break;
-      if (!o.active || o.gk || b.tried.has(o)) continue;
+      if (!o.active || o.gk || o.frozen > 0 || b.tried.has(o)) continue;
       const d = hyp(o.x - b.x, o.y - b.y);
       if (d < 0.45 + (o.stance > 0 ? 0.25 : 0) && b.z < 2.1 + o.z) {
         b.tried.add(o);
@@ -950,6 +953,7 @@ export class Game {
       }
     }
     const gk = this.keeper(def);
+    if (gk && gk.frozen > 0) return false; // a frozen keeper can't save
     if (gk && !b.checkedGK && (px - gk.x) * (b.x - gk.x) <= 0) {
       b.checkedGK = true;
       const f = (gk.x - px) / ((b.x - px) || 1e-6);
@@ -986,6 +990,7 @@ export class Game {
     for (const p of this.all) {
       if (!p.active) continue;
       if (p === b.ignore && b.age < 0.35) continue;
+      if (p.frozen > 0) continue;
       if (b.z > (p.gk ? 2.3 : 2.05) + p.z) continue;
       if (!p.gk && (inArea0 || inAreaW)) continue;
       if (p.gk && goalDist(b.x, b.y, this.teamOf(p).defX) > 6.3) continue;

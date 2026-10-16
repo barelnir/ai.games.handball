@@ -32,6 +32,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Stamp file versions (no mixed old/new files on phones)
+        run: node tools/stamp.mjs ${{ github.sha }}
       - uses: actions/configure-pages@v5
         with:
           enablement: true

@@ -180,6 +180,17 @@ export class Sound {
     for (let i = 0; i < 6; i++) this.hat(t + 0.1 + i * 0.07, this.master, 0.25);
   }
 
+  // ice power-up: a shimmering glassy sweep down
+  freeze() {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime;
+    [96, 91, 88, 84, 79, 76].forEach((n, i) => this.tone(t + i * 0.06, hz(n), 0.5, 'triangle', 0.16, this.master, 8000));
+    const c = this.ctx, n = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    n.buffer = this.noise; f.type = 'highpass'; f.frequency.value = 5000;
+    g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+    n.connect(f); f.connect(g); g.connect(this.master); n.start(t); n.stop(t + 0.95);
+  }
+
   // muscle power-up: a deep boom
   boom() {
     if (!this.ok()) return;

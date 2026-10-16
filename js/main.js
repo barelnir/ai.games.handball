@@ -12,7 +12,7 @@ import { PROFILES, TEMPLATES, profileById, drawPortrait } from './heroes.js';
 const $ = (s) => document.querySelector(s);
 const STEP = 1 / 60;
 
-const settings = { difficulty: 'normal', half: '300', rules: 'full', sound: true, music: true, hero: 'eitan', power: 'lightning' };
+const settings = { difficulty: 'normal', half: '300', rules: 'arcade', sound: true, music: true, hero: 'eitan', power: 'lightning' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('handball7') || '{}')); } catch {}
 const save = () => { try { localStorage.setItem('handball7', JSON.stringify(settings)); } catch {} };
 
@@ -362,7 +362,7 @@ function render() {
   for (const e of ents) {
     if (e.p) {
       const p = e.p;
-      if (p.frozen > 0) T.drawPowerAura(R, p, now, '#7fe7ff');
+      if (p.frozen > 0 && !p.iced) T.drawPowerAura(R, p, now, '#7fe7ff');
       else if (p.effects.length && g.powers.teams[p.team]) T.drawPowerAura(R, p, now, g.powers.teams[p.team].template.aura);
       T.drawHero(R, p.hero, g.teams[p.team].kit, p, {
         t: now,
@@ -370,6 +370,7 @@ function render() {
         dribbling: b.owner === p && p.carry === 'drib',
         alert: alert && p.gk && g.teams[p.team].defX === b.goalX,
       });
+      if (p.frozen > 0 && p.iced) T.drawIceBlock(R, p, now);
     } else if (e.ref) {
       T.drawToonRef(R, e.ref, g.signal && e.i === 0 ? g.signal.type : null, now);
     } else if (e.ball) {
@@ -488,6 +489,6 @@ function showBreak() {
 }
 
 // Read-only handle for automated tests (tests/e2e.mjs).
-window.handball = { get game() { return game; }, get mode() { return mode; } };
+window.handball = { get game() { return game; }, get mode() { return mode; }, input };
 
 boot();

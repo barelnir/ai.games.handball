@@ -19,7 +19,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request)
+    // always check with the server (no stale copies from the HTTP cache); fall back to the cache offline
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok && (e.request.url.startsWith(self.location.origin) || e.request.url.includes('fonts.g'))) {
           const copy = res.clone();

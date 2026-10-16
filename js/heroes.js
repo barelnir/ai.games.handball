@@ -12,15 +12,15 @@ export const PROFILES = [
     iris: '#6a4225', glasses: '#2a1712', style: 'swoop', mouth: 'smirk',
   },
   {
-    // light-brown hair pulled back in a ponytail, wispy strands, big smile with a missing front tooth, earrings
+    // light-brown loose hair down to the shoulders, big happy smile with a missing front tooth, earrings
     id: 'emma', name: 'Emma', nameHe: 'אמה',
-    skin: '#f3c8a8', skinShade: '#e3a888', hair: '#8a6845', hairHi: '#b9946a', brow: '#5a3d26',
-    iris: '#4a2e1c', glasses: null, style: 'ponytail', mouth: 'grin', earrings: '#e8c25a', girl: true,
+    skin: '#f3c8a8', skinShade: '#e3a888', hair: '#b08a5c', hairHi: '#dcbf8e', brow: '#6e5236',
+    iris: '#4a2e1c', glasses: null, style: 'long', mouth: 'grin', earrings: '#e8c25a', girl: true,
   },
   {
-    // ash-brown hair with a fringe falling over the forehead, short sides, calm closed smile
+    // light ash-brown hair with a fringe falling over the forehead, short sides, calm closed smile
     id: 'eyal', name: 'Eyal', nameHe: 'אייל',
-    skin: '#f1c9a9', skinShade: '#dfa785', hair: '#7d6646', hairHi: '#b39b74', brow: '#5a4530',
+    skin: '#f1c9a9', skinShade: '#dfa785', hair: '#a88d63', hairHi: '#d4bc90', brow: '#6e5a42',
     iris: '#4e3220', glasses: null, style: 'fringe', mouth: 'smile',
   },
 ];
@@ -62,6 +62,14 @@ export const TEMPLATES = {
     acc: [], pose: 'double', emblem: 'star', gameEmblem: 'star', gameAcc: [],
     ball: 'power', sound: 'boom',
     fx: { speed: 2.0, aim: 0.5, keeperSave: 0.4 },
+  },
+  ice: {
+    key: 'ice', label: 'קרח', he: 'איש הקרח', about: 'כוח קרח: כל היריבים קופאים',
+    title: (n) => `${n} איש הקרח!`, sub: 'כולם קפאו!',
+    shirt: '#bfe9ff', trim: '#2a6fd6', bg: ['#0b3a6b', '#4fb6f0'], aura: '#cff4ff',
+    acc: ['frost'], pose: 'double', emblem: 'snowflake', gameEmblem: 'diamond', gameAcc: [],
+    ball: 'ice', sound: 'freeze',
+    fx: { speed: 1.3, aim: 0.6, freezeTeam: 3 }, // the computer's ice freezes you for less (see powers.js)
   },
   captain: {
     key: 'captain', label: 'קפטן', he: 'הקפטן', about: 'קפטן: כל הקבוצה רצה מהר יותר',
@@ -110,6 +118,12 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
   }
   R.ellipse(0, -1.3, 2.6 + pulse * 0.15, 2.6 + pulse * 0.15, col(v.aura, 0.35));
   R.ellipse(0, -1.3, 2.0, 2.0, col(v.aura, 0.3));
+  if (v.acc.includes('frost')) {
+    for (let i = 0; i < 10; i++) {
+      const a = i * 0.63 + t * 0.4, r = 2.3 + (i % 3) * 0.25;
+      snowflake(R, Math.cos(a) * r, -1.3 + Math.sin(a) * r * 0.8, 0.12 + (i % 2) * 0.06, col('#ffffff', 0.9));
+    }
+  }
   if (v.acc.includes('bolts')) {
     for (const s of [-1, 1]) {
       const x = s * (2.2 + Math.sin(t * 9) * 0.05);
@@ -185,6 +199,11 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     T(R, -1.0, hy - 0.66, -1.75, hy - 0.95 + w, -1.65, hy - 0.72 + w, c, 0.03);
     T(R, -1.0, hy - 0.58, -1.7, hy - 0.45 - w, -1.6, hy - 0.3 - w, c, 0.03);
   }
+  if (pr.style === 'long') { // loose hair falling past the ears onto the shoulders
+    const sw = Math.sin(t * 2) * 0.04;
+    E(R, 0, hy - 0.1, 1.32, 1.18, HAIR);
+    for (const s of [-1, 1]) E(R, s * (0.98 + sw), hy + 0.75, 0.45, 0.75, HAIR);
+  }
   if (pr.style === 'ponytail') { // tail peeking out behind the head, swinging a little
     const sw = Math.sin(t * 3) * 0.08;
     E(R, 0.9 + sw, hy - 0.95, 0.42, 0.3, HAIR);
@@ -210,7 +229,13 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     }
     R.ellipse(0, hy - 0.78, 1.05, 0.38, HAIR);
   }
-  if (pr.style === 'ponytail') { // pulled back with a centre parting and loose strands
+  if (pr.style === 'long') { // centre parting and soft locks framing the face
+    R.line(0, hy - 1.15, 0.04, hy - 0.7, 0.025, col(pr.skinShade));
+    for (const s of [-1, 1]) {
+      T(R, s * 0.35, hy - 0.95, s * 1.12, hy - 0.62, s * 1.0, hy + 0.05, HAIR, 0.06);
+      R.line(s * 0.75, hy - 0.75, s * 1.0, hy - 0.2, 0.03, HAIR_HI);
+    }
+  } else if (pr.style === 'ponytail') { // pulled back with a centre parting and loose strands
     R.line(0, hy - 1.15, 0.05, hy - 0.68, 0.025, col(pr.skinShade));
     for (const s of [-1, 1]) {
       R.line(s * 1.04, hy - 0.5, s * 1.16, hy - 0.05, 0.04, HAIR);
@@ -256,15 +281,16 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
   R.ellipse(0.62, hy + 0.38, 0.2, 0.1, TP.blush);
   if (pr.mouth === 'grin') {
     // big open smile with a gap where a front tooth fell out
-    // a wide "D" shaped smile: dark mouth, top half hidden by the face, teeth along the top edge
-    ink.E(R, 0, hy + 0.46, 0.44, 0.26, col('#7a2a3a'));
-    R.rect(0, hy + 0.33, 0.5, 0.13, SKIN);
-    R.line(-0.44, hy + 0.46, 0.44, hy + 0.46, 0.03, TP.ink);
-    R.rect(-0.21, hy + 0.52, 0.15, 0.055, TP.white, 0, 0.02);
-    R.rect(0.21, hy + 0.52, 0.15, 0.055, TP.white, 0, 0.02);
-    R.rect(0.0, hy + 0.52, 0.025, 0.055, TP.white, 0, 0.01);
-    R.ellipse(0, hy + 0.64, 0.2, 0.06, col('#ff8a9a'));
-    for (const s of [-1, 1]) R.line(s * 0.44, hy + 0.47, s * 0.52, hy + 0.38, 0.025, SKIN_SH); // smile lines
+    // a big happy crescent smile: teeth showing, with the gap of a missing front tooth
+    ink.E(R, 0, hy + 0.47, 0.42, 0.22, col('#8a3040'));
+    R.ellipse(0, hy + 0.66, 0.2, 0.07, col('#ff8a9a'));
+    R.ellipse(0, hy + 0.44, 0.36, 0.11, TP.white);
+    R.rect(0.04, hy + 0.45, 0.035, 0.09, col('#8a3040'));         // the gap
+    R.ellipse(0, hy + 0.3, 0.5, 0.17, SKIN);                     // upper lip line becomes a curve
+    R.line(-0.38, hy + 0.38, -0.12, hy + 0.45, 0.028, TP.ink);
+    R.line(-0.12, hy + 0.45, 0.12, hy + 0.45, 0.028, TP.ink);
+    R.line(0.12, hy + 0.45, 0.38, hy + 0.38, 0.028, TP.ink);
+    for (const s of [-1, 1]) R.line(s * 0.43, hy + 0.36, s * 0.5, hy + 0.28, 0.025, SKIN_SH); // dimples
   } else if (pr.mouth === 'smile') {
     const m = [[-0.34, 0.52], [-0.16, 0.6], [0.16, 0.6], [0.34, 0.52]];
     for (let i = 0; i < m.length - 1; i++) R.line(m[i][0], hy + m[i][1], m[i + 1][0], hy + m[i + 1][1], 0.04, TP.ink);
@@ -312,8 +338,22 @@ function emblem(R, v, x, y, t) {
   } else if (v.emblem === 'bolt') {
     T(R, x + 0.12, y - 0.5, x - 0.3, y + 0.05, x + 0.02, y + 0.05, c);
     T(R, x - 0.12, y + 0.5, x + 0.3, y - 0.05, x - 0.02, y - 0.05, c);
+  } else if (v.emblem === 'snowflake') {
+    snowflake(R, x, y, 0.42, c, 0.05);
   } else if (v.emblem === 'flame') {
     fireball(R, x, y, t, 0.6);
+  }
+}
+
+export function snowflake(R, x, y, r, c, w = r * 0.12) {
+  for (let i = 0; i < 3; i++) {
+    const a = (i * Math.PI) / 3, dx = Math.cos(a) * r, dy = Math.sin(a) * r;
+    R.line(x - dx, y - dy, x + dx, y + dy, w, c);
+    for (const k of [-1, 1]) {
+      const bx = x + dx * 0.55 * k, by = y + dy * 0.55 * k, ba = a + (k > 0 ? 0 : Math.PI);
+      R.line(bx, by, bx + Math.cos(ba + 0.7) * r * 0.3, by + Math.sin(ba + 0.7) * r * 0.3, w * 0.8, c);
+      R.line(bx, by, bx + Math.cos(ba - 0.7) * r * 0.3, by + Math.sin(ba - 0.7) * r * 0.3, w * 0.8, c);
+    }
   }
 }
 

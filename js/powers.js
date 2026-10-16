@@ -4,8 +4,8 @@
 // catchRadius, stealResist, gkReach), and reads fx for the shot itself (unblockable, freezeKeeper,
 // keeperSave).
 //
-// Flow: the meter fills -> POWER -> the carrier passes to the hero (if needed) -> close-up ->
-// the ball is powered for `duration` seconds -> a powered shot uses fx, then the ball is normal again.
+// Flow: the meter fills -> POWER -> close-up of the team's hero -> the ball is powered for `duration`
+// seconds in the carrier's hands (or as soon as the team gets it) -> a powered shot uses fx.
 
 export const POWERS_ENABLED = true;
 export const ENERGY_MAX = 100;
@@ -55,29 +55,34 @@ export class PowerSystem {
     }
   }
 
-  // Called when POWER is pressed (or the computer decides). Returns true, or why it can't fire yet:
-  // 'energy' (meter not full), 'ball' (team doesn't have the ball), 'missing' (hero not on court).
+  // Called when POWER is pressed (or the computer decides). Returns:
+  //   true      the power fired now (your team has the ball: the ball gets the power at once)
+  //   'armed'   your team doesn't have the ball yet: it fires the moment you get it
+  //   'energy'  the meter isn't full
   activate(teamIdx) {
     const info = this.teams[teamIdx];
     if (!this.enabled || !info) return 'off';
-    const g = this.game, team = g.teams[teamIdx], b = g.ball, hero = info.hero;
-    if (g.pendingPower || b.power) return true;
+    const g = this.game, team = g.teams[teamIdx], b = g.ball;
+    if (b.power || g.splash > 0) return true;
     if (team.energy < COST) return 'energy';
-    if (!hero.active) return 'missing';
-    if (b.owner === hero) { this.start(hero); return true; }
-    if (b.owner && b.owner.team === teamIdx && g.state === 'play') {
-      g.pass(b.owner, hero);            // the carrier passes to the hero; the power starts on the catch
-      if (b.passTo === hero) g.pendingPower = hero;
-      return true;
-    }
-    return 'ball';
+    if (b.owner && b.owner.team === teamIdx) { this.start(b.owner); return true; }
+    info.armed = true;
+    return 'armed';
   }
 
-  start(hero) {
-    const g = this.game, info = this.teams[hero.team], tp = info.template, fx = tp.fx, team = g.teams[hero.team];
+  // The team just got the ball: fire an armed power.
+  onCatch(p) {
+    const info = this.teams[p.team];
+    if (info && info.armed && !this.game.ball.power) this.start(p);
+    for (const t of this.teams) if (t && t !== info) t.armed = false; // the other side lost its chance
+  }
+
+  start(carrier) {
+    const g = this.game, info = this.teams[carrier.team], tp = info.template, fx = tp.fx, team = g.teams[carrier.team];
+    info.armed = false;
     team.energy = Math.max(0, team.energy - COST);
-    hero.effects = hero.effects.filter((e) => e.id !== 'power');
-    hero.effects.push({ id: 'power', t: DURATION, mods: { shotSpeed: fx.speed || 1, shotError: fx.aim || 1 } });
+    carrier.effects = carrier.effects.filter((e) => e.id !== 'power');
+    carrier.effects.push({ id: 'power', t: DURATION, mods: { shotSpeed: fx.speed || 1, shotError: fx.aim || 1 } });
     if (fx.teamSpeed) {
       for (const p of team.players) {
         if (!p.active || p.gk) continue;
@@ -85,13 +90,17 @@ export class PowerSystem {
         p.effects.push({ id: 'rally', t: fx.teamTime || 6, mods: { speed: fx.teamSpeed } });
       }
     }
-    g.pendingPower = null;
+    if (fx.freezeTeam) {
+      // the computer's ice only holds you for 1.5 s, so you never feel stuck for long
+      const secs = 1 - carrier.team === g.opts.human ? 1.5 : fx.freezeTeam;
+      for (const p of g.teams[1 - carrier.team].players) if (p.active) { p.frozen = secs; p.iced = true; }
+    }
     g.ball.power = tp.ball;
-    g.ball.powerTeam = hero.team;
+    g.ball.powerTeam = carrier.team;
     g.powerT = DURATION;
     g.splash = 1.8;
     g.splashInfo = info;
     g.say(tp.title(info.profile.nameHe), tp.sub, 1.9, 'power');
-    g.emit({ type: 'power', kind: tp.key, team: hero.team });
+    g.emit({ type: 'power', kind: tp.key, team: carrier.team });
   }
 }

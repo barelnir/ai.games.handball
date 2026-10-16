@@ -55,29 +55,46 @@ tests/e2e.mjs       Playwright phone test of the real game (`npm run e2e`)
 
 **Heroes:** chibi-style players (head about half the height) with ink outlines, drawn upright on a top-down court. Each squad has 7 named heroes with their own hair, masks, capes, goggles and chest emblems, and poses for running, dribbling, jump shots, stealing, blocking and goalkeeper dives. `PACE` in `js/game.js` sets the overall game speed.
 
-## Your hero and power templates
+## Heroes and powers
 
-On the menu, **Your hero** picks the player and a **power template**. A hero is a cartoon made from a photo, for example Eitan. The hero plays centre back for the Hornets.
+**Play** opens two steps:
+1. Pick a team: Eitan's, Emma's or Eyal's team. The kid is drawn from a photo and plays centre back.
+2. Pick a special power.
 
-| Template | Ball | What the power does |
+The match then starts. 40% of the time the computer's team is led by one of the other kids. Otherwise it is led by Venom. Either way, the computer's hero gets a random power and uses it near your goal.
+
+| Power | Ball | What it does |
 | --- | --- | --- |
 | Lightning | glowing ball with small lightning bolts, electric trail | the keeper freezes, can't be blocked |
 | Fire | fireball with a ribbon of flame | can't be blocked, keeper rarely saves |
-| Muscle | yellow ball with shock-wave rings, speed lines | shot twice as fast |
+| Muscle | yellow ball with shock-wave rings | shot twice as fast |
+| Ice (Eyal's favourite) | ball with orbiting ice crystals, frosty trail | every rival is frozen in a block of ice for 3 s |
 | Captain | white ball with stars circling it | the whole team runs 30% faster for 8 s |
 
-How it plays: the POWER button starts full, refills in under 30 seconds (faster with goals, saves and steals), and glows **READY** when full. The computer's team has a power too: their centre back **Venom** gets a random template each match. The computer fires it when attacking near your goal, and its meter fills about 3x slower than yours.
-1. Press POWER. If a team-mate has the ball, they pass it to your hero.
-2. The match freezes for a full-screen close-up: big head, glasses, flexing muscles, in the template's costume.
-3. For 10 seconds the ball is powered. A powered shot uses the template's effect.
+**POWER button:** it starts full and refills in under 30 seconds. The computer's meter fills about 3x slower. Tapping POWER does one of two things:
+- **Your team has the ball:** the match freezes for a full-screen close-up of your hero (big head, flexing muscles, in the power's costume). The ball is then powered for 10 seconds, in the hands of whoever has it.
+- **The rivals have the ball:** the power is armed, and fires the moment your team gets the ball.
 
-Where things live:
-- `js/heroes.js` has the **profiles**, one per player: skin, hair, hairstyle, eyes, glasses. It also has the **templates**: costume, ball type, glow colour, sound and `fx`. **To add a player from a new photo, add one profile.**
-- `js/powers.js` runs the power.
-- `js/toon.js` draws the balls, trails and glows.
-- `mock/eitan.html` shows every template for a hero side by side.
-- `npm test` checks every template end to end (`tests/power.mjs`).
+**Your player always answers the joystick**, including at throw-offs and set pieces. The default rules are *Easy* (no 3-step or 3-second calls). *Real* is still in the menu.
+
+**Where things live:**
+- `js/heroes.js` has the kids' look profiles and the power templates. To add a kid from a photo, add a profile.
+- `js/powers.js` runs the powers.
+- `js/toon.js` draws everything cartoon.
+- `mock/eitan.html` shows every power for a kid side by side.
+
+## Tests
+
+- `npm test`: headless matches (`tests/sim.mjs`) plus every power end to end (`tests/power.mjs`).
+- `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. It covers:
+  - the pick flow, Hebrew labels and fonts, and the music level;
+  - the joystick: never moves by itself, always stops on release, two thumbs, cancelled touches, a stale touch replaced by a new one;
+  - double-tap zoom;
+  - every power through the real POWER button, including armed powers;
+  - the computer's power, menus and the upright-phone hint;
+  - a fast-forwarded full match.
+  - `ONLY=control,power` runs some sections. `SERVE_DIR=…` tests a stamped build.
 
 ## Deploy (GitHub Pages)
 
-`.github/workflows/pages.yml` runs the simulation test and publishes the site on every push to `main`. One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The game is then at `https://<user>.github.io/ai.games.handball/`.
+`.github/workflows/pages.yml` runs `npm test`, stamps every JS/CSS URL with the commit (`tools/stamp.mjs`, so phones never mix old and new files from their cache), and publishes the site on every push to `main`. One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The game is then at `https://<user>.github.io/ai.games.handball/`.
