@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Handball Seven</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<title>כדוריד הגיבורים</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="A 2D handball game for phone and desktop, rendered with WebGL.">
+<meta name="description" content="משחק כדוריד מצויר לטלפון ולמחשב, עם גיבורים וכוחות מיוחדים.">
 <meta name="theme-color" content="#0d1622">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,32 +15,32 @@
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Rubik:wght@500;700;800&display=swap">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<canvas id="game" aria-label="Handball court"></canvas>
+<canvas id="game" aria-label="מגרש כדוריד"></canvas>
 
 <div id="hud" hidden>
   <div class="board" role="status" aria-live="polite">
-    <div class="team home"><i class="kit"></i><span class="abbr">HOR</span></div>
+    <div class="team home"><i class="kit"></i><span class="abbr">צרעות</span></div>
     <div class="score"><b id="s0">0</b><span>:</span><b id="s1">0</b></div>
-    <div class="team away"><span class="abbr">VIP</span><i class="kit"></i></div>
-    <div class="clock"><span id="clock">00:00</span><small id="half">1st half</small></div>
+    <div class="team away"><span class="abbr">צפעונים</span><i class="kit"></i></div>
+    <div class="clock"><span id="clock">00:00</span><small id="half">מחצית 1</small></div>
   </div>
   <div class="flags">
-    <div id="passive" class="flag" hidden>Passive play · <span id="passLeft">4</span> passes</div>
+    <div id="passive" class="flag" hidden>משחק פסיבי · עוד <span id="passLeft">4</span> מסירות</div>
     <div id="susp" class="susp"></div>
   </div>
   <div id="banner" class="banner" aria-live="assertive"><strong id="bTitle"></strong><span id="bSub"></span></div>
   <div class="corner">
-    <button id="btnMusic" class="ico" aria-label="Music on or off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="3" fill="currentColor"/><circle cx="17.5" cy="16" r="3" fill="currentColor"/></svg></button>
-    <button id="btnSound" class="ico" aria-label="Sound effects on or off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
-    <button id="btnFull" class="ico" aria-label="Fullscreen">⤢</button>
-    <button id="btnPause" class="ico" aria-label="Pause">❚❚</button>
+    <button id="btnMusic" class="ico" aria-label="מוזיקה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="3" fill="currentColor"/><circle cx="17.5" cy="16" r="3" fill="currentColor"/></svg></button>
+    <button id="btnSound" class="ico" aria-label="צלילים"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+    <button id="btnFull" class="ico" aria-label="מסך מלא">⤢</button>
+    <button id="btnPause" class="ico" aria-label="הפסקה">❚❚</button>
   </div>
   <div id="keys" class="keys">
-    <span><kbd>WASD</kbd> move</span><span><kbd>J</kbd> <em id="kA">pass</em></span><span><kbd>K</kbd> hold <em id="kB">shoot</em></span><span><kbd>L</kbd> power</span><span><kbd>P</kbd> pause</span>
+    <span><kbd>WASD</kbd> תזוזה</span><span><kbd>J</kbd> <em id="kA">מסירה</em></span><span><kbd>K</kbd> <em id="kB">זריקה</em></span><span><kbd>L</kbd> כוח</span><span><kbd>P</kbd> הפסקה</span>
   </div>
 </div>
 
@@ -51,45 +51,45 @@
     <div id="knob"></div>
   </div>
   <div class="pad">
-    <button id="btnP" class="tb power" aria-label="Special power"><span>POWER</span><small>soon</small></button>
-    <button id="btnA" class="tb a"><span id="lA">PASS</span></button>
-    <button id="btnB" class="tb b"><span id="lB">SHOOT</span></button>
+    <button id="btnP" class="tb power" aria-label="כוח מיוחד"><span>כוח</span><small>0%</small></button>
+    <button id="btnA" class="tb a"><span id="lA">מסירה</span></button>
+    <button id="btnB" class="tb b"><span id="lB">זריקה</span></button>
   </div>
 </div>
 
 <section id="menu" class="screen">
  <div class="menu-wrap">
   <div class="panel menu-panel">
-    <p class="eyebrow">7 v 7 hero handball</p>
-    <h1>Handball<br><span>Seven</span></h1>
-    <p class="lede">You are the <b class="c-home">Hornets</b>. Beat the <b class="c-away">Vipers</b>!</p>
+    <p class="eyebrow">כדוריד 7 נגד 7</p>
+    <h1>כדוריד<br><span>הגיבורים</span></h1>
+    <p class="lede">אתם <b class="c-home">הצרעות</b>. תנצחו את <b class="c-away">הצפעונים</b>!</p>
     <div class="opts">
-      <fieldset><legend>Opponent</legend>
+      <fieldset><legend>יריב</legend>
         <div class="seg" data-key="difficulty">
-          <button data-v="easy">Easy</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button>
+          <button data-v="easy">קל</button><button data-v="normal">רגיל</button><button data-v="hard">קשה</button>
         </div>
       </fieldset>
-      <fieldset><legend>Halves</legend>
+      <fieldset><legend>מחציות</legend>
         <div class="seg" data-key="half">
-          <button data-v="180">2 × 3 min</button><button data-v="300">2 × 5 min</button><button data-v="600">2 × 10 min</button>
+          <button data-v="180">2 × 3 דק׳</button><button data-v="300">2 × 5 דק׳</button><button data-v="600">2 × 10 דק׳</button>
         </div>
       </fieldset>
-      <fieldset><legend>Rules</legend>
+      <fieldset><legend>חוקים</legend>
         <div class="seg" data-key="rules">
-          <button data-v="full">Real</button><button data-v="arcade">Easy</button>
+          <button data-v="full">אמיתיים</button><button data-v="arcade">קלים</button>
         </div>
       </fieldset>
     </div>
     <div class="row">
-      <button id="play" class="cta">Throw-off</button>
-      <button id="openRules" class="ghost">How to play</button>
+      <button id="play" class="cta">יאללה, משחקים!</button>
+      <button id="openRules" class="ghost">איך משחקים</button>
     </div>
-    <p class="fine">Renderer: <span id="gfx">…</span></p>
+    <p class="fine">גרפיקה: <span id="gfx">…</span></p>
   </div>
-  <aside class="hero-card" aria-label="Your hero">
-    <p class="eyebrow">Your hero</p>
+  <aside class="hero-card" aria-label="הגיבור שלך">
+    <p class="eyebrow">הגיבור שלך</p>
     <canvas id="heroPreview" aria-hidden="true"></canvas>
-    <strong id="heroName">LIGHTNING EITAN</strong>
+    <strong id="heroName">איתן הברק</strong>
     <span id="heroAbout"></span>
     <div class="seg" data-key="hero" id="heroSeg"></div>
     <div class="seg" data-key="power" id="powerSeg"></div>
@@ -100,24 +100,24 @@
 
 <section id="pause" class="screen" hidden>
   <div class="panel small">
-    <h2>Paused</h2>
+    <h2>הפסקה</h2>
     <div class="col">
-      <button id="resume" class="cta">Resume</button>
-      <button id="restart" class="ghost">Restart match</button>
-      <button id="toRules" class="ghost">How to play</button>
-      <button id="toMenu" class="ghost">Main menu</button>
+      <button id="resume" class="cta">ממשיכים</button>
+      <button id="restart" class="ghost">משחק חדש</button>
+      <button id="toRules" class="ghost">איך משחקים</button>
+      <button id="toMenu" class="ghost">לתפריט</button>
     </div>
   </div>
 </section>
 
 <section id="break" class="screen" hidden>
   <div class="panel small">
-    <p class="eyebrow" id="brEyebrow">Half-time</p>
+    <p class="eyebrow" id="brEyebrow">מחצית</p>
     <h2 id="brScore">0 : 0</h2>
     <table class="stats" id="brStats"></table>
     <div class="col">
-      <button id="brNext" class="cta">Start second half</button>
-      <button id="brMenu" class="ghost">Main menu</button>
+      <button id="brNext" class="cta">למחצית השנייה</button>
+      <button id="brMenu" class="ghost">לתפריט</button>
     </div>
   </div>
 </section>
@@ -125,36 +125,37 @@
 <section id="rules" class="screen" hidden>
   <div class="panel rules-panel">
     <header class="rules-head">
-      <h2>How to play</h2>
-      <button class="ghost close" data-close="rules">Back</button>
+      <h2>איך משחקים</h2>
+      <button class="ghost close" data-close="rules">חזרה</button>
     </header>
     <div class="rules-body">
       <article>
-        <h3>Controls</h3>
+        <h3>שליטה</h3>
         <ul class="ctl">
-          <li><b>Move</b> left arrows / WASD</li>
-          <li><b>Pass</b> PASS / J</li>
-          <li><b>Shoot</b> hold SHOOT, let go / K</li>
-          <li><b>Steal</b> STEAL / K</li>
-          <li><b>Switch player</b> SWITCH / J</li>
+          <li><b>תזוזה</b> החצים משמאל / WASD</li>
+          <li><b>מסירה</b> מסירה / J</li>
+          <li><b>זריקה</b> להחזיק זריקה ולעזוב / K</li>
+          <li><b>חטיפה</b> חטיפה / K</li>
+          <li><b>החלפת שחקן</b> החלף / J</li>
+          <li><b>כוח מיוחד</b> כוח (כשמוכן) / L</li>
         </ul>
       </article>
       <article>
-        <h3>The rules</h3>
+        <h3>החוקים</h3>
         <ul class="rl">
-          <li><b>Orange zone:</b> keepers only. Jump in to shoot.</li>
-          <li><b>3 steps, 3 seconds</b> with the ball. Bounce it to keep running.</li>
-          <li><b>Steal from the front.</b> From behind is a foul.</li>
-          <li><b>Foul</b> = free throw. Big chance fouled = <b>7-metre shot</b>.</li>
-          <li><b>Cards:</b> yellow, then 2 minutes off, then red.</li>
-          <li><b>No stalling:</b> after the warning, 4 passes then shoot.</li>
+          <li><b>האזור הכתום:</b> רק לשוער. אפשר לקפוץ פנימה כדי לזרוק.</li>
+          <li><b>3 צעדים ו-3 שניות</b> עם הכדור. מכדררים כדי להמשיך לרוץ.</li>
+          <li><b>חוטפים מלפנים.</b> מאחור זו עבירה.</li>
+          <li><b>עבירה</b> = זריקה חופשית. עבירה על הזדמנות בטוחה = <b>זריקת 7 מטר</b>.</li>
+          <li><b>כרטיסים:</b> צהוב, אחר כך 2 דקות בחוץ, ואז אדום.</li>
+          <li><b>לא מעכבים:</b> אחרי האזהרה יש 4 מסירות, ואז חייבים לזרוק.</li>
         </ul>
       </article>
     </div>
   </div>
 </section>
 
-<div id="rotate" hidden><div>Turn your phone sideways for the full court.</div></div>
+<div id="rotate" hidden><div>סובבו את הטלפון לרוחב כדי לראות את כל המגרש</div></div>
 
 <script type="module" src="js/main.js"></script>
 </body>

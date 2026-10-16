@@ -1,5 +1,5 @@
 // Offline support: network first (so updates show up immediately), cache as fallback.
-const CACHE = 'handball7-v4';
+const CACHE = 'handball7-v5';
 const CORE = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest', 'assets/icon.svg',
   'js/main.js', 'js/game.js', 'js/court.js', 'js/render.js', 'js/input.js', 'js/audio.js', 'js/powers.js', 'js/toon.js', 'js/heroes.js',

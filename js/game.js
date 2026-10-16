@@ -24,7 +24,9 @@ export const DIFFICULTY = {
   hard:   { speed: 1.03, steal: 0.95, gk: 0.52, react: 0.12, aim: 0.80, think: 0.13, intercept: 0.52 },
 };
 
-export const KITS = SQUADS.map((sq) => ({ name: sq.name, abbr: sq.name.slice(0, 3).toUpperCase(), ...sq.kit }));
+// he: team name, to: "to the team" (e.g. free throw to the Vipers), short: scoreboard label
+export const KITS = SQUADS.map((sq) => ({ name: sq.name, he: sq.he, to: sq.to, abbr: sq.short, ...sq.kit }));
+const heName = (p) => p.hero.nameHe || p.hero.name;
 
 // Overall pace. Lower = calmer game (player speed, passes and shots all scale with it).
 const PACE = 0.72;
@@ -35,9 +37,9 @@ const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
 const hyp = Math.hypot;
 
 const VIOLATIONS = {
-  steps: 'Too many steps',
-  three: 'Held too long',
-  passive: 'Passive play',
+  steps: 'יותר מדי צעדים',
+  three: 'החזקה ארוכה מדי',
+  passive: 'משחק פסיבי',
 };
 
 function makePlayer(team, role, i) {
@@ -74,7 +76,7 @@ export class Game {
       this.template = TEMPLATES[this.opts.power] || TEMPLATES.lightning;
       const cb = this.teams[h].players.find((p) => p.role === 'CB');
       cb.hero = heroFromProfile(this.profile, this.template);
-      this.powers.configure(this.template, this.profile.name);
+      this.powers.configure(this.template, this.profile.nameHe);
     }
     this.ball = {
       x: CX, y: CY, z: 0, vx: 0, vy: 0, vz: 0, owner: null, state: 'dead', passTo: null, tx: 0, ty: 0,
@@ -197,9 +199,9 @@ export class Game {
     if (inp.pPress) {
       const r = this.powers.activate(this.opts.human);
       const pct = Math.floor(this.teams[this.opts.human].energy);
-      if (r === 'energy') this.say('Power charging', `${pct}%`, 1.2, 'soft');
-      else if (r === 'ball') this.say('Get the ball first!', '', 1.2, 'soft');
-      else if (r === 'missing') this.say('Eitan is off court', '', 1.2, 'soft');
+      if (r === 'energy') this.say('הכוח נטען', `${pct}%`, 1.2, 'soft');
+      else if (r === 'ball') this.say('קודם להשיג את הכדור!', '', 1.2, 'soft');
+      else if (r === 'missing') this.say(`${this.profile.nameHe} לא על המגרש`, '', 1.2, 'soft');
     }
     if (!c) return;
     if (b.owner === c) {
@@ -718,7 +720,7 @@ export class Game {
       this.teams[def.team].stats.steals++;
       this.powers.gain(this.teams[def.team], 'steal');
       this.setOwner(def);
-      this.say('Steal!', '', 1, 'soft');
+      this.say('חטיפה!', '', 1, 'soft');
       this.emit({ type: 'steal', team: def.team });
     } else if (r < ps + pf * (1 - ps)) {
       this.foul(def, c, severe);
@@ -749,17 +751,17 @@ export class Game {
         distToSegment(o.x, o.y, att.x, att.y, ax, CY).d < 1.0 && goalDist(o.x, o.y, ax) < gd);
       clear = facing && !blocked;
     }
-    const cardTitle = { yellow: 'Yellow card', '2min': '2 minutes off', red: 'Red card' }[card];
-    const cardSub = card ? `${def.hero.name} · ` : '';
+    const cardTitle = { yellow: 'כרטיס צהוב', '2min': '2 דקות בחוץ', red: 'כרטיס אדום' }[card];
+    const cardSub = card ? `${heName(def)} · ` : '';
     if (clear) {
       this.setPiece('penalty', att.team, ax - s * PEN_D, CY, {
-        title: cardTitle || '7-metre throw!', sub: `${cardSub}penalty ${at.kit.name}`, signal: card || 'penalty',
+        title: cardTitle || 'זריקת 7 מטר!', sub: `${cardSub}7 מטר ${at.kit.to}`, signal: card || 'penalty',
       });
     } else {
       let q = { x: clamp(att.x, 0.5, W - 0.5), y: clamp(att.y, 0.2, H - 0.2) };
       if (goalDist(q.x, q.y, ax) < 9) q = pushOut(q.x, q.y, ax, 9.05);
       this.setPiece('freethrow', att.team, q.x, q.y, {
-        title: cardTitle || (severe ? 'Foul from behind' : 'Foul'), sub: `${cardSub}free throw ${at.kit.name}`, signal: card || 'free',
+        title: cardTitle || (severe ? 'עבירה מאחור' : 'עבירה'), sub: `${cardSub}חופשית ${at.kit.to}`, signal: card || 'free',
       });
     }
   }
@@ -784,7 +786,7 @@ export class Game {
         p.x = t.defX === 0 ? CX - 4.5 : CX + 4.5; p.y = H - 0.3;
         if (p.red) {
           p.red = false; p.suspCount = 0; p.yellow = false; p.num += 20;
-          this.say(`${t.kit.name} back to 7`, '', 1.4, 'soft');
+          this.say(`${t.kit.he} שוב בשבעה`, '', 1.4, 'soft');
         }
       }
     }
@@ -804,7 +806,7 @@ export class Game {
     const ax = this.attackX(this.teams[other]);
     let q = { x: clamp(p.x, 0.5, W - 0.5), y: clamp(p.y, 0.2, H - 0.2) };
     if (goalDist(q.x, q.y, ax) < 9) q = pushOut(q.x, q.y, ax, 9.05);
-    this.setPiece('freethrow', other, q.x, q.y, { title, sub: `free throw ${this.teams[other].kit.name}`, signal: kind });
+    this.setPiece('freethrow', other, q.x, q.y, { title, sub: `חופשית ${this.teams[other].kit.to}`, signal: kind });
   }
 
   setPiece(type, teamIdx, x, y, o = {}) {
@@ -826,9 +828,9 @@ export class Game {
     taker.carry = 'fresh';
     taker.ai.delay = rnd(0.3, 0.9);
     this.lock = { p: taker, penalty: type === 'penalty' };
-    const names = { throwoff: 'Throw-off', freethrow: 'Free throw', throwin: 'Throw-in', penalty: '7-metre throw!' };
+    const names = { throwoff: 'זריקת פתיחה', freethrow: 'זריקה חופשית', throwin: 'זריקת חוץ', penalty: 'זריקת 7 מטר!' };
     const title = o.title || names[type];
-    this.say(title, o.sub || `${t.kit.name} ball`, type === 'penalty' ? 2 : 1.5, o.title ? 'rule' : 'info');
+    this.say(title, o.sub || `הכדור ${t.kit.to}`, type === 'penalty' ? 2 : 1.5, o.title ? 'rule' : 'info');
     if (o.signal) this.signal = { type: o.signal, t: 2 };
     this.emit({ type: 'setpiece', kind: type, team: teamIdx });
   }
@@ -876,7 +878,7 @@ export class Game {
           b.vx = -b.vx * 0.45; b.vy += rnd(-3, 3); b.vz = Math.abs(b.vz) * 0.3 + 0.5;
           b.state = 'loose';
           this.emit({ type: 'post' });
-          this.say(bar ? 'Crossbar!' : 'Off the post!', '', 1, 'soft');
+          this.say(bar ? 'משקוף!' : 'קורה!', '', 1, 'soft');
           return;
         }
         if (cy > POST_LO && cy < POST_HI && cz < GOAL_H) { this.goal(gx); return; }
@@ -904,7 +906,7 @@ export class Game {
         if (Math.random() < (o.stance > 0 ? 0.75 : 0.5)) {
           b.vx = -b.vx * 0.25 + rnd(-2, 2); b.vy = b.vy * 0.3 + rnd(-3, 3); b.vz = 1.5;
           b.state = 'loose'; b.last = o; b.lastTeam = o.team;
-          this.say('Blocked!', '', 0.9, 'soft');
+          this.say('נחסם!', '', 0.9, 'soft');
           this.emit({ type: 'block' });
           return true;
         }
@@ -927,11 +929,11 @@ export class Game {
           this.emit({ type: 'save', team: def.idx });
           if (sp < 19 * PACE && Math.random() < 0.45) {
             this.setOwner(gk);
-            this.say('Save!', gk.hero.name, 1.2, 'soft');
+            this.say('הצלה!', heName(gk), 1.2, 'soft');
           } else {
             b.vx = s * rnd(2, 5); b.vy = rnd(-5, 5); b.vz = rnd(1, 3);
             b.state = 'loose'; b.last = gk; b.lastTeam = gk.team;
-            this.say('Save!', '', 1, 'soft');
+            this.say('הצלה!', '', 1, 'soft');
           }
           return true;
         }
@@ -972,7 +974,7 @@ export class Game {
     t.score++; t.stats.goals++;
     this.powers.gain(t, 'goal');
     const scorer = b.state === 'shot' && b.shooter && b.shooter.team === t.idx ? b.shooter : b.last && b.last.team === t.idx ? b.last : null;
-    this.say('GOAL!', scorer ? scorer.hero.name : t.kit.name, 2.2, 'goal');
+    this.say('גול!', scorer ? heName(scorer) : t.kit.he, 2.2, 'goal');
     this.signal = { type: 'goal', t: 1.6 };
     this.emit({ type: 'goal', team: t.idx });
     this.emit({ type: 'whistle', n: 1 });
@@ -988,14 +990,14 @@ export class Game {
       const def = this.teams.find((t) => t.defX === x);
       if (b.last && b.last.team === def.idx && !b.last.gk) {
         this.emit({ type: 'whistle', n: 1 });
-        this.setPiece('throwin', 1 - def.idx, x === 0 ? 0.3 : W - 0.3, y < CY ? 0 : H, { title: 'Corner throw' });
+        this.setPiece('throwin', 1 - def.idx, x === 0 ? 0.3 : W - 0.3, y < CY ? 0 : H, { title: 'זריקת קרן' });
       } else {
         const gk = this.keeper(def);
         if (!gk) { this.setPiece('throwin', def.idx, x === 0 ? 0.3 : W - 0.3, y < CY ? 0 : H); return; }
         b.state = 'held';
         this.lock = null;
         this.setOwner(gk);
-        this.say('Keeper ball', '', 1, 'soft');
+        this.say('כדור לשוער', '', 1, 'soft');
       }
     } else {
       this.emit({ type: 'whistle', n: 1 });
@@ -1033,7 +1035,7 @@ export class Game {
     if (this.full && !this.passive && this.attackT > this.passiveTime) {
       this.passive = true; this.passivePasses = 0;
       this.signal = { type: 'passive', t: 3 };
-      this.say('Passive play!', '4 passes, then shoot', 2, 'rule');
+      this.say('משחק פסיבי!', '4 מסירות ואז לזרוק', 2, 'rule');
       this.emit({ type: 'warn' });
     }
   }
@@ -1043,10 +1045,10 @@ export class Game {
     this.lock = null;
     if (this.half === 1) {
       this.state = 'halftime';
-      this.say('Half-time', '', 3, 'info');
+      this.say('מחצית', '', 3, 'info');
     } else {
       this.state = 'fulltime';
-      this.say('Full-time', '', 3, 'info');
+      this.say('סיום המשחק', '', 3, 'info');
     }
   }
 
@@ -1056,7 +1058,7 @@ export class Game {
     const first = 1 - this.firstThrow;
     this.poss = first;
     this.placeAll(first);
-    this.setPiece('throwoff', first, CX, CY, { title: 'Second half', sub: 'Teams switch ends' });
+    this.setPiece('throwoff', first, CX, CY, { title: 'מחצית שנייה', sub: 'מחליפים צדדים' });
   }
 
   updateRefs(dt) {

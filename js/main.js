@@ -30,14 +30,15 @@ sound.musicOn = settings.music !== false;
 // ------------------------------------------------------------------ setup
 async function boot() {
   R = createRenderer($('#game'));
-  $('#gfx').textContent = R.kind === 'WebGL 2' ? 'WebGL 2' : 'Canvas 2D (WebGL 2 not available on this device)';
+  $('#gfx').textContent = R.kind === 'WebGL 2' ? 'WebGL 2' : 'Canvas 2D (אין WebGL 2 במכשיר הזה)';
+  blockPageZoom();
   resize();
   addEventListener('resize', resize);
   addEventListener('orientationchange', () => setTimeout(resize, 200));
   startDemo();
   bindUI();
   preview = createRenderer($('#heroPreview'));
-  const dpr = Math.min(window.devicePixelRatio || 1, 2), pc = preview.canvas;
+  const dpr = pixelRatio(), pc = preview.canvas;
   pc.width = Math.round(pc.clientWidth * dpr) || 300; pc.height = Math.round(pc.clientHeight * dpr) || 300;
   syncHero();
   requestAnimationFrame(frame);
@@ -46,8 +47,27 @@ async function boot() {
   }
 }
 
+// Sharp on every phone (up to 3x pixels) but capped so big screens stay fast.
+function pixelRatio() {
+  const d = Math.min(window.devicePixelRatio || 1, 3), px = innerWidth * innerHeight;
+  return Math.max(1, Math.min(d, Math.sqrt(4.5e6 / px)));
+}
+
+// Stop the phone browser from zooming the page (pinch or double-tap): the game sets its own zoom.
+function blockPageZoom() {
+  const stop = (e) => e.preventDefault();
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, stop, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  let lastTap = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTap < 300 && !e.target.closest('button, .seg')) e.preventDefault();
+    lastTap = now;
+  }, { passive: false });
+}
+
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = pixelRatio();
   const c = R.canvas;
   c.width = Math.round(innerWidth * dpr);
   c.height = Math.round(innerHeight * dpr);
@@ -58,7 +78,7 @@ function resize() {
 let preview = null;
 function syncHero() {
   const pr = profileById(settings.hero), tp = TEMPLATES[settings.power] || TEMPLATES.lightning;
-  $('#heroName').textContent = tp.title(pr.name.toUpperCase()).replace('!', '');
+  $('#heroName').textContent = tp.title(pr.nameHe).replace('!', '');
   $('#heroAbout').textContent = tp.about;
 }
 
@@ -107,7 +127,7 @@ document.addEventListener('visibilitychange', () => {
 // ------------------------------------------------------------------ UI
 function bindUI() {
   // hero picker: one button per player profile (more come from photos)
-  $('#heroSeg').innerHTML = PROFILES.map((p) => `<button data-v="${p.id}">${p.name}</button>`).join('');
+  $('#heroSeg').innerHTML = PROFILES.map((p) => `<button data-v="${p.id}">${p.nameHe}</button>`).join('');
   $('#powerSeg').innerHTML = Object.values(TEMPLATES).map((t) => `<button data-v="${t.key}">${t.label}</button>`).join('');
   document.querySelectorAll('.seg').forEach((seg) => {
     const key = seg.dataset.key;
@@ -240,8 +260,9 @@ function updateCamera(dt) {
     ppm = Math.min(c.width / 50, c.height / 27);
     tx = W / 2 - (c.width / ppm) * 0.12; ty = H / 2;
   } else {
-    // close camera: about 10 m of court top-to-bottom on a phone held sideways
-    ppm = Math.min(c.height / 10, c.width / 17);
+    // Fixed, readable zoom on every screen: at least 24 m of court across and 13 m top to bottom
+    // (on a phone held sideways that is about 28 × 13 m, so you always see where you are).
+    ppm = Math.min(c.width / 24, c.height / 13);
     const b = game.ball, r = b.owner || b;
     const s = game.teams[game.poss].defX === 0 ? 1 : -1;
     tx = r.x + s * 2.5; ty = r.y - (b.z || 0) * Z2Y * 0.5;
@@ -357,7 +378,7 @@ function updateHUD() {
   $('#s0').textContent = g.teams[0].score;
   $('#s1').textContent = g.teams[1].score;
   $('#clock').textContent = g.clockText();
-  $('#half').textContent = g.half === 1 ? '1st half' : '2nd half';
+  $('#half').textContent = g.half === 1 ? 'מחצית 1' : 'מחצית 2';
 
   if (g.msg !== lastMsg) {
     lastMsg = g.msg;
@@ -386,14 +407,14 @@ function updateHUD() {
   const b = g.ball, h = 0;
   const attacking = b.owner && b.owner.team === h;
   const gkBall = attacking && b.owner.gk;
-  const la = attacking ? 'PASS' : 'SWITCH', lb = gkBall ? 'THROW' : attacking ? 'SHOOT' : 'STEAL';
-  if ($('#lA').textContent !== la) { $('#lA').textContent = la; $('#kA').textContent = la.toLowerCase(); }
-  if ($('#lB').textContent !== lb) { $('#lB').textContent = lb; $('#kB').textContent = lb.toLowerCase(); }
+  const la = attacking ? 'מסירה' : 'החלף', lb = gkBall ? 'הוצאה' : attacking ? 'זריקה' : 'חטיפה';
+  if ($('#lA').textContent !== la) { $('#lA').textContent = la; $('#kA').textContent = la; }
+  if ($('#lB').textContent !== lb) { $('#lB').textContent = lb; $('#kB').textContent = lb; }
   const e = Math.round((g.teams[h].energy / ENERGY_MAX) * 100);
   $('#btnP').style.setProperty('--e', e);
   const ready = POWERS_ENABLED && e >= 100;
   $('#btnP').classList.toggle('ready', ready);
-  $('#btnP').querySelector('small').textContent = !POWERS_ENABLED ? 'soon' : ready ? 'READY' : `${e}%`;
+  $('#btnP').querySelector('small').textContent = !POWERS_ENABLED ? 'בקרוב' : ready ? 'מוכן!' : `${e}%`;
 }
 
 function showBreak() {
@@ -401,11 +422,11 @@ function showBreak() {
   const g = game;
   const [a, z] = g.teams;
   const half = g.state === 'halftime';
-  $('#brEyebrow').textContent = half ? 'Half-time' : a.score > z.score ? 'Full-time · You win' : a.score < z.score ? 'Full-time · Vipers win' : 'Full-time · Draw';
+  $('#brEyebrow').textContent = half ? 'מחצית' : a.score > z.score ? 'סיום · ניצחתם!' : a.score < z.score ? 'סיום · הצפעונים ניצחו' : 'סיום · תיקו';
   $('#brScore').textContent = `${a.score} : ${z.score}`;
-  const rows = [['Goals', 'goals'], ['Shots', 'shots'], ['Saves', 'saves'], ['Steals', 'steals'], ['Fouls', 'fouls'], ['2-min', 'suspensions']];
+  const rows = [['שערים', 'goals'], ['זריקות', 'shots'], ['הצלות', 'saves'], ['חטיפות', 'steals'], ['עבירות', 'fouls'], ['2 דקות', 'suspensions']];
   $('#brStats').innerHTML = rows.map(([l, k]) => `<tr><td>${a.stats[k]}</td><td>${l}</td><td>${z.stats[k]}</td></tr>`).join('');
-  $('#brNext').textContent = half ? 'Start second half' : 'Play again';
+  $('#brNext').textContent = half ? 'למחצית השנייה' : 'עוד משחק!';
   setMode('break');
 }
 

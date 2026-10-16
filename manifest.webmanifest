@@ -1,7 +1,7 @@
 {
-  "name": "Handball Seven",
-  "short_name": "Handball 7",
-  "description": "A 2D handball game for phone and desktop, rendered with WebGL.",
+  "name": "כדוריד הגיבורים",
+  "short_name": "כדוריד",
+  "description": "משחק כדוריד מצויר לטלפון ולמחשב, עם גיבורים וכוחות מיוחדים.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
@@ -9,8 +9,23 @@
   "background_color": "#0d1622",
   "theme_color": "#0d1622",
   "icons": [
-    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml" },
-    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "lang": "he",
+  "dir": "rtl"
 }

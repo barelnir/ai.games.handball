@@ -21,32 +21,32 @@ export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES
 //   teamSpeed / teamTime   whole team runs faster for teamTime seconds
 export const TEMPLATES = {
   lightning: {
-    key: 'lightning', label: 'Lightning', he: 'הברק', about: 'Lightning ball: the keeper freezes',
-    title: (n) => `LIGHTNING ${n}!`, sub: 'Lightning ball!',
+    key: 'lightning', label: 'ברק', he: 'הברק', about: 'כדור ברק: השוער קופא',
+    title: (n) => `${n} הברק!`, sub: 'כדור ברק!',
     shirt: '#24305e', trim: '#7fe7ff', bg: ['#0f1638', '#3b2a8a'], aura: '#7fe7ff',
     acc: ['laser', 'bolts'], pose: 'double', emblem: 'bolt', gameEmblem: 'bolt', gameAcc: [],
     ball: 'lightning', sound: 'zap',
     fx: { speed: 1.35, aim: 0.6, unblockable: true, freezeKeeper: 1.5 },
   },
   fire: {
-    key: 'fire', label: 'Fire', he: 'האש', about: 'Fireball: nobody can block it',
-    title: (n) => `FIRE ${n}!`, sub: 'Fireball ready!',
+    key: 'fire', label: 'אש', he: 'האש', about: 'כדור אש: אי אפשר לחסום אותו',
+    title: (n) => `${n} האש!`, sub: 'כדור אש!',
     shirt: '#e8453c', trim: '#ffd23f', bg: ['#b3261e', '#ff7a1a'], aura: '#ffb347',
     acc: ['headband', 'fireball'], pose: 'fire', emblem: 'flame', gameEmblem: 'drop', gameAcc: ['headband'],
     ball: 'fire', sound: 'whoosh',
     fx: { speed: 1.6, aim: 0.6, unblockable: true, keeperSave: 0.25 },
   },
   muscle: {
-    key: 'muscle', label: 'Muscle', he: 'סופר-שריר', about: 'Power shot: twice as fast',
-    title: (n) => `SUPER ${n}!`, sub: 'Power shot!',
+    key: 'muscle', label: 'שרירים', he: 'סופר-שריר', about: 'זריקת כוח: מהירה פי 2',
+    title: (n) => `${n} סופר-שריר!`, sub: 'זריקת כוח!',
     shirt: '#ffd23f', trim: '#1b2a4a', bg: ['#ffb000', '#ffd23f'], aura: '#fff3b0',
     acc: [], pose: 'double', emblem: 'star', gameEmblem: 'star', gameAcc: [],
     ball: 'power', sound: 'boom',
     fx: { speed: 2.0, aim: 0.5, keeperSave: 0.4 },
   },
   captain: {
-    key: 'captain', label: 'Captain', he: 'הקפטן', about: 'Rally: the whole team runs faster',
-    title: (n) => `CAPTAIN ${n}!`, sub: 'Team, go go go!',
+    key: 'captain', label: 'קפטן', he: 'הקפטן', about: 'קפטן: כל הקבוצה רצה מהר יותר',
+    title: (n) => `${n} הקפטן!`, sub: 'כולם קדימה!',
     shirt: '#ffffff', trim: '#e03a3e', trim2: '#1b2a4a', bg: ['#1b2a4a', '#2f4a8a'], aura: '#9fc3ff',
     acc: ['cape'], cape: '#e03a3e', pose: 'ball', emblem: 'shield', gameEmblem: 'hex', gameAcc: ['cape'],
     ball: 'star', sound: 'fanfare',
@@ -58,7 +58,7 @@ export const TEMPLATE_LIST = Object.values(TEMPLATES);
 // The small in-game figure for a profile + template (wears the team kit; the template adds a detail).
 export function heroFromProfile(pr, tp) {
   return {
-    role: 'CB', pos: 'Centre back', name: pr.name, build: 'normal', custom: true,
+    role: 'CB', pos: 'Centre back', name: pr.name, nameHe: pr.nameHe, build: 'normal', custom: true,
     skin: pr.skin, hair: pr.hair, style: pr.style,
     acc: [...(pr.glasses ? ['glasses'] : []), ...tp.gameAcc],
     emblem: tp.gameEmblem,

@@ -85,7 +85,7 @@ export class PowerSystem {
     g.ball.power = tp.ball;
     g.powerT = DURATION;
     g.splash = 1.8;
-    g.say(tp.title(this.heroName.toUpperCase()), tp.sub, 1.9, 'power');
+    g.say(tp.title(this.heroName), tp.sub, 1.9, 'power');
     g.emit({ type: 'power', kind: tp.key, team: hero.team });
   }
 }
