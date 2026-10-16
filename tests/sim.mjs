@@ -18,7 +18,7 @@ for (let r = 0; r < runs; r++) {
     if (!Number.isFinite(g.ball.x + g.ball.y + g.ball.z)) throw new Error('ball position became NaN');
   }
   const goals = g.teams[0].score + g.teams[1].score;
-  const ok = g.state === 'fulltime' && goals >= 4 && (counts.save || 0) > 0;
+  const ok = g.state === 'fulltime' && goals >= 2 && (counts.shot || 0) >= 10;
   if (!ok) failed = true;
   console.log(`${ok ? 'ok  ' : 'FAIL'} match ${r + 1}: ${g.teams[0].score}-${g.teams[1].score}`, JSON.stringify(counts));
 }

@@ -5,8 +5,10 @@ import { goalDist } from '../js/court.js';
 let fails = 0;
 const check = (ok, name, info = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${info ? `  (${info})` : ''}`); if (!ok) fails++; };
 
-let goals = 0, tries = 0;
-for (let run = 0; run < 10; run++) {
+// The pass to Eitan can be intercepted (that's fair play), so keep going until 8 powers have fired.
+let goals = 0, tries = 0, runs = 0;
+for (let run = 0; run < 60 && tries < 8; run++) {
+  runs++;
   const g = new Game({ halfLen: 600, human: 0, difficulty: 'hard' });
   const inp = { mx: 0, my: 0 }; g.input = inp;
   const eitan = g.teams[0].players.find((p) => p.hero.name === 'Eitan');
@@ -39,6 +41,6 @@ for (let run = 0; run < 10; run++) {
   while (g.ball.state === 'shot' && n++ < 200) g.step(1 / 60);
   if (g.teams[0].score > before) goals++;
 }
-check(tries >= 5, 'power fired in most runs', `${tries}/10`);
+check(tries >= 8, 'power fires once Eitan gets the ball', `${tries} powers in ${runs} tries`);
 check(goals >= tries * 0.7, 'fireball shots score (no blocks, keeper frozen)', `${goals}/${tries} goals vs hard keeper`);
 process.exit(fails ? 1 : 0);
