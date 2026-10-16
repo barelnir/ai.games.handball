@@ -612,18 +612,107 @@ export function drawFireTrail(R, trail, t) {
   }
 }
 
-// Lightning glow around a powered-up hero.
-export function drawPowerAura(R, p, t) {
+// Glow around a powered-up hero (or a frozen keeper), in the template's colour.
+export function drawPowerAura(R, p, t, hex = '#7fe7ff') {
   setInk(R);
   const X = p.x, Y = p.y - (p.z || 0) * Z2Y;
   const pulse = 0.5 + 0.5 * Math.sin(t * 10);
-  R.ellipse(X, Y - 0.55, 0.62 + pulse * 0.06, 0.78 + pulse * 0.06, col('#7fe7ff', 0.2));
-  R.ring(X, p.y + 0.02, 0.45, 0.18, 0.04, col('#7fe7ff', 0.8));
+  R.ellipse(X, Y - 0.55, 0.62 + pulse * 0.06, 0.78 + pulse * 0.06, col(hex, 0.2));
+  R.ring(X, p.y + 0.02, 0.45, 0.18, 0.04, col(hex, 0.8));
   for (let i = 0; i < 3; i++) {
     if (Math.sin(t * 23 + i * 2.1) < 0.2) continue; // flicker
     const a = t * 3 + i * 2.09, cx = X + Math.cos(a) * 0.55, cy = Y - 0.55 + Math.sin(a) * 0.65;
-    R.line(cx, cy - 0.12, cx - 0.06, cy, 0.022, col('#7fe7ff'));
-    R.line(cx - 0.06, cy, cx + 0.05, cy + 0.02, 0.022, col('#7fe7ff'));
-    R.line(cx + 0.05, cy + 0.02, cx - 0.02, cy + 0.14, 0.022, col('#7fe7ff'));
+    zigzag(R, cx, cy - 0.14, cx, cy + 0.14, 0.022, col(hex), t + i);
+  }
+}
+
+// a jagged lightning line from (x1,y1) to (x2,y2)
+function zigzag(R, x1, y1, x2, y2, w, c, seed) {
+  const n = 4, dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+  let px = x1, py = y1;
+  for (let i = 1; i <= n; i++) {
+    const k = i / n, j = i === n ? 0 : Math.sin(seed * 37.1 + i * 12.9) * len * 0.22;
+    const qx = x1 + dx * k + nx * j, qy = y1 + dy * k + ny * j;
+    R.line(px, py, qx, qy, w, c);
+    px = qx; py = qy;
+  }
+}
+
+const ELEC = { glow: col('#7fe7ff', 0.3), cyan: col('#7fe7ff'), white: col('#f4feff'), deep: col('#2a7bff') };
+
+// A powered ball, drawn by kind: 'lightning' | 'fire' | 'power' | 'star'.
+export function drawPowerBall(R, kind, x, y, z, t) {
+  if (kind === 'fire') return drawFireBall(R, x, y, z, t);
+  setInk(R);
+  const sy = y - z * Z2Y, sh = 1 / (1 + z * 0.8);
+  R.ellipse(x, y + 0.02, 0.14 * sh, 0.06 * sh, TP.shadow);
+  if (kind === 'lightning') {
+    R.ellipse(x, sy, 0.34, 0.34, ELEC.glow);
+    // small bolts crackling around the ball
+    const f = Math.floor(t * 18);
+    for (let i = 0; i < 5; i++) {
+      const a = i * 1.257 + f * 0.7 + Math.sin(f + i) * 0.4;
+      const r0 = 0.13, r1 = 0.3 + ((f + i) % 3) * 0.04;
+      zigzag(R, x + Math.cos(a) * r0, sy + Math.sin(a) * r0, x + Math.cos(a) * r1, sy + Math.sin(a) * r1, 0.024, ELEC.cyan, f + i);
+      zigzag(R, x + Math.cos(a) * r0, sy + Math.sin(a) * r0, x + Math.cos(a) * r1, sy + Math.sin(a) * r1, 0.01, ELEC.white, f + i);
+    }
+    E(R, x, sy, 0.12, 0.12, ELEC.white);
+    R.ellipse(x, sy, 0.08, 0.08, ELEC.cyan);
+    R.line(x - 0.03, sy - 0.06, x + 0.02, sy, 0.015, ELEC.deep);
+    R.line(x + 0.02, sy, x - 0.02, sy + 0.06, 0.015, ELEC.deep);
+  } else if (kind === 'power') {
+    for (let k = 0; k < 2; k++) {
+      const f = (t * 2.2 + k * 0.5) % 1;
+      R.ring(x, sy, 0.13 + f * 0.3, 0.13 + f * 0.3, 0.025, col('#ffd23f', q(1 - f)));
+    }
+    E(R, x, sy, 0.13, 0.13, col('#ffd23f'));
+    R.ellipse(x, sy, 0.08, 0.08, col('#fff3b0'));
+    R.ellipse(x - 0.04, sy - 0.04, 0.035, 0.03, TP.highlight);
+  } else {
+    // star: a white-red ball with stars circling it
+    E(R, x, sy, 0.12, 0.12, col('#ffffff'));
+    R.line(x - 0.09, sy - 0.03, x + 0.09, sy + 0.03, 0.02, col('#e03a3e'));
+    for (let i = 0; i < 3; i++) {
+      const a = t * 4 + i * 2.09, sx = x + Math.cos(a) * 0.26, s2 = sy + Math.sin(a) * 0.2;
+      star(R, sx, s2, 0.07, col(i === 1 ? '#e03a3e' : i ? '#ffffff' : '#ffd23f'));
+    }
+  }
+}
+
+function star(R, x, y, r, c) {
+  R.tri(x, y - r, x - r * 0.9, y + r * 0.65, x + r * 0.9, y + r * 0.65, c);
+  R.tri(x, y + r, x - r * 0.9, y - r * 0.45, x + r * 0.9, y - r * 0.45, c);
+}
+
+// Trail behind a flying powered ball. trail: oldest point first, each {x, y, z}.
+export function drawPowerTrail(R, kind, trail, t) {
+  if (kind === 'fire') return drawFireTrail(R, trail, t);
+  const n = trail.length;
+  if (n < 2) return;
+  const sy = (p) => p.y - p.z * Z2Y;
+  if (kind === 'lightning') {
+    for (let i = 1; i < n; i++) {
+      const a = trail[i - 1], b = trail[i], k = i / n;
+      R.line(a.x, sy(a), b.x, sy(b), 0.22 * (0.3 + k * 0.7), col('#7fe7ff', q(k * 0.35)));
+    }
+    // two crackling bolts running along the trail
+    const f = Math.floor(t * 20);
+    for (let b2 = 0; b2 < 2; b2++) {
+      for (let i = 1; i < n; i++) {
+        const a = trail[i - 1], b = trail[i], k = i / n;
+        const j = (Math.sin((f + i * 3 + b2 * 11) * 1.7) * 0.12) * (1 - k * 0.5);
+        R.line(a.x, sy(a) + (i > 1 ? j : 0), b.x, sy(b) - j, 0.03 * (0.4 + k), b2 ? ELEC.white : ELEC.cyan);
+      }
+    }
+  } else if (kind === 'power') {
+    for (let i = 1; i < n; i++) {
+      const a = trail[i - 1], b = trail[i], k = i / n;
+      for (const o of [-0.1, 0, 0.1]) R.line(a.x, sy(a) + o, b.x, sy(b) + o, (o ? 0.015 : 0.05) * (0.3 + k), col(o ? '#ffffff' : '#ffd23f', q(k)));
+    }
+  } else {
+    for (let i = 0; i < n; i += 2) {
+      const p = trail[i], k = (i + 1) / n;
+      star(R, p.x + Math.sin(i * 2.3) * 0.12, sy(p) + Math.cos(i * 1.7) * 0.12, 0.03 + k * 0.05, col(['#e03a3e', '#ffffff', '#2f4a8a'][i % 3], q(0.3 + k * 0.7)));
+    }
   }
 }

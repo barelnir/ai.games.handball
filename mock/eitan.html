@@ -79,14 +79,15 @@ footer { color: var(--muted); font-size: 14px; }
 <script type="module">
 import { createRenderer } from '../js/render.js';
 import { drawHero, drawToonBall, TP, col } from '../js/toon.js';
-import { VARIANTS, drawPortrait, eitanHero, eitanKit } from '../js/eitan.js';
+import { PROFILES, TEMPLATE_LIST, drawPortrait, heroFromProfile, templateKit } from '../js/heroes.js';
+const pr = PROFILES[0];
 
 const grid = document.getElementById('grid');
-const items = VARIANTS.map((v, i) => {
+const items = TEMPLATE_LIST.map((v, i) => {
   const card = document.createElement('article');
   card.className = 'card';
   card.innerHTML = `<div class="shot"><canvas></canvas><div class="num">${i + 1}</div><div class="burst">POWER!</div></div>
-    <div class="info"><h2>${v.name}</h2><p>${v.power}</p></div>
+    <div class="info"><h2>${pr.nameHe} ${v.he}</h2><p>${v.about}</p></div>
     <div class="small"><canvas></canvas><span>ככה הוא נראה על המגרש בגודל אמיתי</span></div>`;
   grid.appendChild(card);
   const [big, small] = card.querySelectorAll('canvas');
@@ -110,14 +111,14 @@ function frame(now) {
   for (const { v, big, small } of items) {
     const c = big.canvas;
     big.begin(0, -0.75, c.height / 5.2, TP.clear);
-    drawPortrait(big, v, t);
+    drawPortrait(big, pr, v, t);
     big.end();
     // in-game size: same zoom as the match on a phone (10 m of court top to bottom)
     const s = small.canvas, ppm = (s.height / 92) * 39;
     small.begin(1.4, 0.55, ppm, TP.court);
     small.rect(1.4, 1.2, 4, 0.2, TP.courtAlt);
     small.line(-1, 1.05, 4, 1.05, 0.05, TP.line);
-    const hero = eitanHero(v), kit = eitanKit(v);
+    const hero = heroFromProfile(pr, v), kit = templateKit(v);
     drawHero(small, hero, kit, { x: 0.2, y: 0.95, z: 0, vx: 0, vy: 0, face: Math.PI / 2, phase: 0 }, { t });
     drawHero(small, hero, kit, { x: 1.4, y: 0.95, z: 0, vx: 3.5, vy: 0, face: 0, phase: t * 11 }, { t, hasBall: true, dribbling: true });
     drawToonBall(small, 1.67, 0.97, 0.19 + Math.abs(Math.sin(t * 7)) * 0.3, t);

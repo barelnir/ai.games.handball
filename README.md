@@ -43,8 +43,8 @@ js/toon.js          Cartoon art: hero squads, court, goals, referees, ball (buil
 js/input.js         Keyboard + multi-touch joystick and buttons
 js/audio.js         Synthesised music loop, whistle, ball and crowd sounds (WebAudio, no audio files)
 mock/index.html     Character sheet / look-and-feel mock
-js/powers.js        Special powers (Lightning Eitan)
-js/eitan.js         Eitan's full-screen POWER portrait (four costume variants)
+js/powers.js        Special power logic (driven by the chosen template)
+js/heroes.js        Hero profiles (from photos), power templates, full-screen POWER portrait
 sw.js, manifest     PWA: install to the home screen, works offline
 tests/sim.mjs       Headless AI-vs-AI matches (`npm test`)
 tests/power.mjs     Eitan's power, end to end (`npm test`)
@@ -55,16 +55,28 @@ tests/e2e.mjs       Playwright phone test of the real game (`npm run e2e`)
 
 **Heroes:** chibi-style players (head about half the height) with ink outlines, drawn upright on a top-down court. Each squad has 7 named heroes with their own hair, masks, capes, goggles and chest emblems, and poses for running, dribbling, jump shots, stealing, blocking and goalkeeper dives. `PACE` in `js/game.js` sets the overall game speed.
 
-## Special power: Lightning Eitan
+## Your hero and power templates
 
-The Hornets' centre back is **Eitan** (glasses, swept-up brown hair). The POWER button fills up over time and with goals, saves and steals. When it glows **READY**:
+On the menu, **Your hero** picks the player and a **power template**. A hero is a cartoon made from a photo, for example Eitan. The hero plays centre back for the Hornets.
 
-1. Press POWER. If a team-mate has the ball, they pass it straight to Eitan.
-2. The match freezes for a full-screen close-up: big-headed Eitan flexing, with lightning eyes (`js/eitan.js`).
-3. The ball becomes a **fireball** in Eitan's hands (10 seconds).
-4. A fireball shot flies faster with a trail of fire. It can't be blocked, and the keeper freezes, shown with lightning around him.
+| Template | Ball | What the power does |
+| --- | --- | --- |
+| Lightning | glowing ball with small lightning bolts, electric trail | the keeper freezes, can't be blocked |
+| Fire | fireball with a ribbon of flame | can't be blocked, keeper rarely saves |
+| Muscle | yellow ball with shock-wave rings, speed lines | shot twice as fast |
+| Captain | white ball with stars circling it | the whole team runs 30% faster for 8 s |
 
-`js/powers.js` holds the power definition (cost, duration, modifiers). The game asks it for multipliers (`speed`, `shotSpeed`, `shotError`, `catchRadius`, `stealResist`, `gkReach`), so more heroes' powers can be added the same way. `mock/eitan.html` shows the four hero designs that were considered. `npm test` also runs `tests/power.mjs`, which checks the power end to end.
+How it plays: the POWER button fills up over time and with goals, saves and steals, and glows **READY** when full.
+1. Press POWER. If a team-mate has the ball, they pass it to your hero.
+2. The match freezes for a full-screen close-up: big head, glasses, flexing muscles, in the template's costume.
+3. For 10 seconds the ball is powered. A powered shot uses the template's effect.
+
+Where things live:
+- `js/heroes.js` has the **profiles**, one per player: skin, hair, hairstyle, eyes, glasses. It also has the **templates**: costume, ball type, glow colour, sound and `fx`. **To add a player from a new photo, add one profile.**
+- `js/powers.js` runs the power.
+- `js/toon.js` draws the balls, trails and glows.
+- `mock/eitan.html` shows every template for a hero side by side.
+- `npm test` checks every template end to end (`tests/power.mjs`).
 
 ## Deploy (GitHub Pages)
 

@@ -1,55 +1,82 @@
-// Eitan: a custom hero for the Hornets, plus the full-screen "POWER" portrait
-// (big head looking at you, flexing muscular arms). Four costume/power variants to choose from.
+// Custom heroes: a player's look (profile, drawn from a photo) combined with a power template
+// (Lightning, Fire, Muscle, Captain). The template sets everything about the power: the full-screen
+// close-up costume, the ball, the trail, the glow, the sound and what the power does in the game.
+// To add a new player: add an entry to PROFILES (colours and hairstyle), nothing else.
 
-import { col, TP, ink, setInk, SQUADS } from './toon.js';
+import { col, TP, ink, setInk } from './toon.js';
 
-// In-game look (small figure): Eitan plays centre back for the Hornets.
-export const EITAN = SQUADS[0].heroes.find((h) => h.name === 'Eitan');
-
-export const VARIANTS = [
+export const PROFILES = [
   {
-    key: 'muscle', name: 'איתן סופר-שריר', en: 'Super Muscle Eitan',
-    power: 'זריקת כוח: הכדור טס פי 2 מהר ישר לשער',
-    shirt: '#ffd23f', trim: '#1b2a4a', bg: ['#ffb000', '#ffd23f'], aura: '#fff3b0',
-    acc: [], pose: 'double', emblem: 'star',
-  },
-  {
-    key: 'captain', name: 'קפטן איתן', en: 'Captain Eitan',
-    power: 'קפטן: כל הקבוצה רצה מהר יותר ל-6 שניות',
-    shirt: '#ffffff', trim: '#e03a3e', trim2: '#1b2a4a', bg: ['#1b2a4a', '#2f4a8a'], aura: '#9fc3ff',
-    acc: ['cape'], cape: '#e03a3e', pose: 'ball', emblem: 'shield',
-  },
-  {
-    key: 'lightning', name: 'איתן הברק', en: 'Lightning Eitan',
-    power: 'עיני ברק: השוער קופא לשנייה וחצי',
-    shirt: '#24305e', trim: '#7fe7ff', bg: ['#0f1638', '#3b2a8a'], aura: '#7fe7ff',
-    acc: ['laser', 'bolts'], pose: 'double', emblem: 'bolt',
-  },
-  {
-    key: 'fire', name: 'איתן האש', en: 'Fire Eitan',
-    power: 'כדור אש: זריקה שאי אפשר לחסום',
-    shirt: '#e8453c', trim: '#ffd23f', bg: ['#b3261e', '#ff7a1a'], aura: '#ffb347',
-    acc: ['headband', 'fireball'], pose: 'fire', emblem: 'flame',
+    id: 'eitan', name: 'Eitan', nameHe: 'איתן',
+    skin: '#f2c6a4', skinShade: '#e2a684', hair: '#6e4a2a', hairHi: '#9b7046', brow: '#4a3120',
+    iris: '#6a4225', glasses: '#2a1712', style: 'swoop',
   },
 ];
+export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES[0];
 
-// The in-game hero with a variant's kit applied.
-export const LIGHTNING = VARIANTS.find((v) => v.key === 'lightning');
+// fx: what the power does.
+//   speed      shot speed multiplier          aim        shot error multiplier (lower = more accurate)
+//   unblockable  defenders can't block         freezeKeeper  keeper frozen for N seconds (no save)
+//   keeperSave   multiplier on the keeper's save chance
+//   teamSpeed / teamTime   whole team runs faster for teamTime seconds
+export const TEMPLATES = {
+  lightning: {
+    key: 'lightning', label: 'Lightning', he: 'הברק', about: 'Lightning ball: the keeper freezes',
+    title: (n) => `LIGHTNING ${n}!`, sub: 'Lightning ball!',
+    shirt: '#24305e', trim: '#7fe7ff', bg: ['#0f1638', '#3b2a8a'], aura: '#7fe7ff',
+    acc: ['laser', 'bolts'], pose: 'double', emblem: 'bolt', gameEmblem: 'bolt', gameAcc: [],
+    ball: 'lightning', sound: 'zap',
+    fx: { speed: 1.35, aim: 0.6, unblockable: true, freezeKeeper: 1.5 },
+  },
+  fire: {
+    key: 'fire', label: 'Fire', he: 'האש', about: 'Fireball: nobody can block it',
+    title: (n) => `FIRE ${n}!`, sub: 'Fireball ready!',
+    shirt: '#e8453c', trim: '#ffd23f', bg: ['#b3261e', '#ff7a1a'], aura: '#ffb347',
+    acc: ['headband', 'fireball'], pose: 'fire', emblem: 'flame', gameEmblem: 'drop', gameAcc: ['headband'],
+    ball: 'fire', sound: 'whoosh',
+    fx: { speed: 1.6, aim: 0.6, unblockable: true, keeperSave: 0.25 },
+  },
+  muscle: {
+    key: 'muscle', label: 'Muscle', he: 'סופר-שריר', about: 'Power shot: twice as fast',
+    title: (n) => `SUPER ${n}!`, sub: 'Power shot!',
+    shirt: '#ffd23f', trim: '#1b2a4a', bg: ['#ffb000', '#ffd23f'], aura: '#fff3b0',
+    acc: [], pose: 'double', emblem: 'star', gameEmblem: 'star', gameAcc: [],
+    ball: 'power', sound: 'boom',
+    fx: { speed: 2.0, aim: 0.5, keeperSave: 0.4 },
+  },
+  captain: {
+    key: 'captain', label: 'Captain', he: 'הקפטן', about: 'Rally: the whole team runs faster',
+    title: (n) => `CAPTAIN ${n}!`, sub: 'Team, go go go!',
+    shirt: '#ffffff', trim: '#e03a3e', trim2: '#1b2a4a', bg: ['#1b2a4a', '#2f4a8a'], aura: '#9fc3ff',
+    acc: ['cape'], cape: '#e03a3e', pose: 'ball', emblem: 'shield', gameEmblem: 'hex', gameAcc: ['cape'],
+    ball: 'star', sound: 'fanfare',
+    fx: { speed: 1.2, aim: 0.8, teamSpeed: 1.3, teamTime: 8 },
+  },
+};
+export const TEMPLATE_LIST = Object.values(TEMPLATES);
 
-export function eitanHero(v) {
-  return { ...EITAN, acc: [...EITAN.acc, ...(v.acc.includes('cape') ? ['cape'] : []), ...(v.acc.includes('headband') ? ['headband'] : [])], emblem: v.emblem === 'flame' ? 'drop' : v.emblem === 'shield' ? 'hex' : v.emblem };
+// The small in-game figure for a profile + template (wears the team kit; the template adds a detail).
+export function heroFromProfile(pr, tp) {
+  return {
+    role: 'CB', pos: 'Centre back', name: pr.name, build: 'normal', custom: true,
+    skin: pr.skin, hair: pr.hair, style: pr.style,
+    acc: [...(pr.glasses ? ['glasses'] : []), ...tp.gameAcc],
+    emblem: tp.gameEmblem,
+  };
 }
-export function eitanKit(v) {
-  return { shirt: v.shirt, trim: v.trim, shorts: v.trim2 || '#1b2a4a', cape: v.cape || '#1b2a4a', shoe: '#ffffff', gk: v.shirt, gkTrim: v.trim, mask: '#000', glow: v.aura };
+// The template's costume as an in-game kit (used by the preview pages).
+export function templateKit(tp) {
+  return { shirt: tp.shirt, trim: tp.trim, shorts: tp.trim2 || '#1b2a4a', cape: tp.cape || '#1b2a4a', shoe: '#ffffff', gk: tp.shirt, gkTrim: tp.trim, mask: '#000', glow: tp.aura };
 }
-
-const SKIN = col('#f2c6a4'), SKIN_SH = col('#e2a684'), HAIR = col('#6e4a2a'), HAIR_HI = col('#9b7046');
-const FRAME = col('#2a1712'), IRIS = col('#6a4225'), LENS = col('#dff3ff', 0.22), LIP = col('#d77b7b');
 
 // Portrait in its own coordinates: the head is centred at (0, -1.55) with radius ~1.1, waist at y = 1.6.
 // Call with the renderer's camera already set up to frame roughly x -2.4..2.4, y -3.3..1.7.
-export function drawPortrait(R, v, t, intro = 1) {
+const LENS = col('#dff3ff', 0.22), LIP = col('#d77b7b');
+
+export function drawPortrait(R, pr, v, t, intro = 1) {
   setInk(R);
+  const SKIN = col(pr.skin), SKIN_SH = col(pr.skinShade), HAIR = col(pr.hair), HAIR_HI = col(pr.hairHi);
+  const FRAME = col(pr.glasses || '#000000'), IRIS = col(pr.iris);
   const { E, B, L, T } = ink;
   const pulse = Math.sin(t * 4) * 0.5 + 0.5;
   const bob = Math.sin(t * 2) * 0.04;
@@ -141,12 +168,14 @@ export function drawPortrait(R, v, t, intro = 1) {
   }
   for (const s of [-1, 1]) { E(R, s * 1.08, hy + 0.12, 0.2, 0.27, SKIN); R.ellipse(s * 1.1, hy + 0.12, 0.08, 0.13, SKIN_SH); }
   E(R, 0, hy, 1.1, 1.05, SKIN);
-  R.ellipse(0, hy + 0.75, 0.55, 0.22, col('#e2a684', 0.25)); // chin shade
+  R.ellipse(0, hy + 0.75, 0.55, 0.22, col(pr.skinShade, 0.25)); // chin shade
 
-  // hair: short sides, tall tufty top swept up and to the right
+  // hair
   E(R, 0, hy - 0.72, 1.12, 0.5, HAIR);
-  for (const [bx, tx, ty] of [[-0.75, -0.6, -1.15], [-0.4, -0.1, -1.45], [0.0, 0.45, -1.6], [0.4, 0.95, -1.4], [0.75, 1.15, -1.0]]) {
-    T(R, bx - 0.32, hy - 0.62, bx + 0.32, hy - 0.66, tx, hy + ty, HAIR, 0.06);
+  if (pr.style === 'swoop') { // short sides, tall tufty top swept up and to the right
+    for (const [bx, tx, ty] of [[-0.75, -0.6, -1.15], [-0.4, -0.1, -1.45], [0.0, 0.45, -1.6], [0.4, 0.95, -1.4], [0.75, 1.15, -1.0]]) {
+      T(R, bx - 0.32, hy - 0.62, bx + 0.32, hy - 0.66, tx, hy + ty, HAIR, 0.06);
+    }
   }
   R.ellipse(0, hy - 0.75, 1.08, 0.46, HAIR);
   R.ellipse(-1.02, hy - 0.25, 0.14, 0.32, HAIR); // sideburns
@@ -154,23 +183,29 @@ export function drawPortrait(R, v, t, intro = 1) {
   for (const [a, b, c, d] of [[-0.5, -1.0, -0.2, -1.3], [0.1, -1.05, 0.45, -1.4], [0.55, -0.95, 0.85, -1.2]]) R.line(a, hy + b + 0.2, c, hy + d + 0.2, 0.035, HAIR_HI);
 
   // eyebrows (thick)
-  for (const s of [-1, 1]) R.line(s * 0.7, hy - 0.42, s * 0.18, hy - 0.47, 0.065, col('#4a3120'));
+  for (const s of [-1, 1]) R.line(s * 0.7, hy - 0.42, s * 0.18, hy - 0.47, 0.065, col(pr.brow));
 
   // glasses frames, then eyes inside them
   const laser = v.acc.includes('laser');
+  const gl = !!pr.glasses;
   for (const s of [-1, 1]) {
-    B(R, s * 0.45, hy - 0.08, 0.36, 0.27, FRAME, 0.1);
-    R.rect(s * 0.45, hy - 0.08, 0.28, 0.2, SKIN, 0, 0.06);
-    R.ellipse(s * 0.45, hy - 0.06, 0.2, 0.17, TP.eyeWhite);
+    if (gl) {
+      B(R, s * 0.45, hy - 0.08, 0.36, 0.27, FRAME, 0.1);
+      R.rect(s * 0.45, hy - 0.08, 0.28, 0.2, SKIN, 0, 0.06);
+    }
+    if (gl) R.ellipse(s * 0.45, hy - 0.06, 0.2, 0.17, TP.eyeWhite);
+    else ink.E(R, s * 0.45, hy - 0.06, 0.22, 0.2, TP.eyeWhite);
     const lx = s * 0.45 + Math.sin(t * 0.7) * 0.02;
     R.ellipse(lx, hy - 0.05, 0.12, 0.13, laser ? col('#7fe7ff') : IRIS);
     R.ellipse(lx, hy - 0.05, 0.06, 0.065, laser ? col('#ffffff') : TP.ink);
     R.ellipse(lx - 0.04, hy - 0.1, 0.035, 0.035, TP.highlight);
-    R.rect(s * 0.45, hy - 0.08, 0.28, 0.2, laser ? col('#7fe7ff', 0.25 + pulse * 0.3) : LENS, 0, 0.06);
-    R.line(s * 0.45 - 0.18, hy - 0.2, s * 0.45 - 0.05, hy - 0.26, 0.025, col('#ffffff', 0.7)); // glare
-    R.line(s * 0.81, hy - 0.12, s * 1.02, hy - 0.05, 0.05, FRAME); // temples
+    if (gl) {
+      R.rect(s * 0.45, hy - 0.08, 0.28, 0.2, laser ? col('#7fe7ff', Math.round((0.25 + pulse * 0.3) * 10) / 10) : LENS, 0, 0.06);
+      R.line(s * 0.45 - 0.18, hy - 0.2, s * 0.45 - 0.05, hy - 0.26, 0.025, col('#ffffff', 0.7)); // glare
+      R.line(s * 0.81, hy - 0.12, s * 1.02, hy - 0.05, 0.05, FRAME); // temples
+    }
   }
-  R.line(-0.09, hy - 0.12, 0.09, hy - 0.12, 0.05, FRAME); // bridge
+  if (gl) R.line(-0.09, hy - 0.12, 0.09, hy - 0.12, 0.05, FRAME); // bridge
   if (laser) for (const s of [-1, 1]) R.line(s * 0.45, hy - 0.05, s * 0.45 + s * 0.2, hy + 3.2, 0.05 + pulse * 0.03, col('#7fe7ff', 0.5));
 
   // nose, cheeks, smirk (closed mouth, one side higher), dimple

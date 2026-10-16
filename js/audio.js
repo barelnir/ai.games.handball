@@ -180,6 +180,22 @@ export class Sound {
     for (let i = 0; i < 6; i++) this.hat(t + 0.1 + i * 0.07, this.master, 0.25);
   }
 
+  // muscle power-up: a deep boom
+  boom() {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime;
+    this.kick(t, this.master); this.kick(t + 0.12, this.master);
+    this.snare(t, this.master, 0.6);
+    this.tone(t, 55, 0.8, 'sawtooth', 0.3, this.master, 300);
+  }
+
+  // captain power-up: a short trumpet-like fanfare
+  fanfare() {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime;
+    [67, 72, 76, 79].forEach((n, i) => this.tone(t + i * 0.11, hz(n), i === 3 ? 0.5 : 0.14, 'sawtooth', 0.18, this.master, 2500));
+  }
+
   // fireball shot: a falling noise sweep
   whoosh() {
     if (!this.ok()) return;

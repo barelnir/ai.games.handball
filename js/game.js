@@ -7,6 +7,7 @@ import {
 } from './court.js';
 import { PowerSystem } from './powers.js';
 import { SQUADS } from './toon.js';
+import { TEMPLATES, profileById, heroFromProfile } from './heroes.js';
 
 const G = 9.8;
 const ROLES = ['GK', 'LW', 'LB', 'CB', 'RB', 'RW', 'PV'];
@@ -66,6 +67,15 @@ export class Game {
       stats: { shots: 0, goals: 0, saves: 0, steals: 0, fouls: 0, turnovers: 0, suspensions: 0 },
     }));
     this.all = [...this.teams[0].players, ...this.teams[1].players];
+    // the player's own hero (from a photo) plays centre back, with the chosen power template
+    const h = this.opts.human;
+    if (h >= 0) {
+      this.profile = profileById(this.opts.hero);
+      this.template = TEMPLATES[this.opts.power] || TEMPLATES.lightning;
+      const cb = this.teams[h].players.find((p) => p.role === 'CB');
+      cb.hero = heroFromProfile(this.profile, this.template);
+      this.powers.configure(this.template, this.profile.name);
+    }
     this.ball = {
       x: CX, y: CY, z: 0, vx: 0, vy: 0, vz: 0, owner: null, state: 'dead', passTo: null, tx: 0, ty: 0,
       shooter: null, goalX: 0, shotDist: 0, age: 0, last: null, lastTeam: 0, ignore: null,
@@ -611,7 +621,7 @@ export class Game {
   }
 
   changePossession(team) {
-    this.ball.fire = false;
+    this.ball.power = null;
     if (this.poss !== team) this.teams[this.poss].stats.turnovers++;
     this.poss = team; this.attackT = 0; this.passive = false; this.passivePasses = 0;
     const h = this.opts.human;
@@ -679,11 +689,12 @@ export class Game {
     b.vz = (tz - b.z + 0.5 * G * T * T) / T;
     t.stats.shots++;
     this.passive = false; this.passivePasses = 0; this.attackT = 0;
-    if (b.fire) {
-      b.fireShot = true;
-      if (gk) gk.frozen = 1.5;
-      p.effects = p.effects.filter((e) => e.id !== 'lightning');
-      this.emit({ type: 'fireshot', team: p.team });
+    if (b.power) {
+      const fx = this.powers.fx;
+      b.powerShot = true;
+      if (gk && fx.freezeKeeper) gk.frozen = fx.freezeKeeper;
+      p.effects = p.effects.filter((e) => e.id !== 'power');
+      this.emit({ type: 'powershot', kind: b.power, team: p.team });
     }
     this.emit({ type: 'shot', team: p.team, power });
   }
@@ -825,8 +836,8 @@ export class Game {
   // ---------------------------------------------------------------- ball
   updateBall(dt) {
     const b = this.ball;
-    if (b.fire && !b.fireShot && (this.fireT -= dt) <= 0) b.fire = false;
-    if (b.fireShot && b.state !== 'shot') { b.fire = false; b.fireShot = false; }
+    if (b.power && !b.powerShot && (this.powerT -= dt) <= 0) b.power = null;
+    if (b.powerShot && b.state !== 'shot') { b.power = null; b.powerShot = false; }
     if (b.owner) {
       const p = b.owner, fx = Math.cos(p.face) >= 0 ? 1 : -1;
       b.y = p.y + 0.02;
@@ -882,8 +893,10 @@ export class Game {
   shotContacts(px, py) {
     const b = this.ball, gx = b.goalX, s = gx === 0 ? 1 : -1;
     const def = this.teams.find((t) => t.defX === gx);
-    if (b.fire) return false; // a fireball can't be blocked or saved
+    const fx = b.power ? this.powers.fx : {};
+    if (fx.freezeKeeper) return false; // keeper frozen and blocks don't stop it
     for (const o of def.players) {
+      if (fx.unblockable) break;
       if (!o.active || o.gk || b.tried.has(o)) continue;
       const d = hyp(o.x - b.x, o.y - b.y);
       if (d < 0.45 + (o.stance > 0 ? 0.25 : 0) && b.z < 2.1 + o.z) {
@@ -906,7 +919,8 @@ export class Game {
       const reach = (0.5 + (gk.action === 'dive' ? 0.55 : 0.2)) * this.powers.mod(gk, 'gkReach');
       if (dy < reach && b.z < 2.25) {
         const sp = hyp(b.vx, b.vy);
-        const pr = clamp(this.diffFor(gk).gk + 0.3 * (1 - dy / reach) - (sp / PACE - 18) / 35 + (b.shotDist - 7) * 0.03, 0.08, 0.92);
+        let pr = clamp(this.diffFor(gk).gk + 0.3 * (1 - dy / reach) - (sp / PACE - 18) / 35 + (b.shotDist - 7) * 0.03, 0.08, 0.92);
+        if (fx.keeperSave != null) pr *= fx.keeperSave;
         if (Math.random() < pr) {
           def.stats.saves++;
           this.powers.gain(def, 'save');
