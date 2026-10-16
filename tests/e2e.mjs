@@ -83,8 +83,17 @@ async function loudness(page, ms = 1500) {
   check(menuPeak > 0.1, 'music plays after the first tap', `peak ${menuPeak.toFixed(2)}`);
 
   await page.tap('#play');
+  await page.waitForTimeout(400);
+  check(await page.isVisible('#pickTeams'), 'step 1: pick a team (one per kid)', `${await page.locator('#pickTeams .pick-card').count()} teams`);
+  await page.screenshot({ path: `${out}/1b-pick-team.png` });
+  await page.locator('#pickTeams .pick-card').nth(1).tap();
+  await page.waitForTimeout(400);
+  check(await page.isVisible('#pickPowers'), 'step 2: pick a special power', `${await page.locator('#pickPowers .pick-card').count()} powers`);
+  await page.screenshot({ path: `${out}/1c-pick-power.png` });
+  await page.locator('#pickPowers .pick-card').nth(0).tap();
   await page.waitForTimeout(1500);
   check(await page.isVisible('#hud'), 'match starts, scoreboard visible');
+  check((await page.textContent('.board .home .abbr')).trim() === (await page.evaluate(() => handball.game.profile.nameHe)), 'scoreboard shows the chosen kid\'s team');
   check(await page.isVisible('#stick') && await page.isVisible('#btnB'), 'arrow pad and buttons visible on phone');
 
   // steer with the arrow pad: hold "right" for 1.5 s and check our hero moved right
@@ -148,7 +157,7 @@ async function loudness(page, ms = 1500) {
   await page.evaluate(() => { localStorage.setItem('handball7', JSON.stringify({ half: '180', music: false })); });
   await page.reload();
   await page.clock.runFor(1500);
-  await page.evaluate(() => document.querySelector('#play').click());
+  await page.evaluate(() => { document.querySelector('#play').click(); document.querySelector('#pickTeams .pick-card').click(); document.querySelector('#pickPowers .pick-card').click(); });
   for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
   const ht = await page.textContent('#brEyebrow');
   check(/מחצית/.test(ht), 'half-time screen after the first half', ht);

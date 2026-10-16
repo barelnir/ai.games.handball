@@ -33,7 +33,6 @@ export class Input {
       this.keys.delete(e.code);
       if (B.includes(e.code)) this.state.bRelease = true;
     });
-    addEventListener('blur', () => this.keys.clear());
   }
 
   bindTouch() {
@@ -56,10 +55,15 @@ export class Input {
       this.arrows.down.classList.toggle('on', on && dy > d * 0.38);
       this.arrows.up.classList.toggle('on', on && dy < -d * 0.38);
     };
+    this.releaseStick = () => {
+      this.stick.id = null;
+      this.stick.x = this.stick.ox; this.stick.y = this.stick.oy;
+      showKnob();
+    };
     zone.addEventListener('pointerdown', (e) => {
-      if (this.stick.id !== null) return;
+      // a new touch always takes over, even if an old one never reported lifting off
       this.touchUsed = true;
-      zone.setPointerCapture(e.pointerId);
+      try { zone.setPointerCapture(e.pointerId); } catch {}
       this.stick.id = e.pointerId;
       const r = this.base.getBoundingClientRect();
       const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
@@ -69,37 +73,62 @@ export class Input {
       this.stick.x = e.clientX; this.stick.y = e.clientY;
       showKnob();
     });
-    zone.addEventListener('pointermove', (e) => {
+    addEventListener('pointermove', (e) => {
       if (e.pointerId !== this.stick.id) return;
       this.stick.x = e.clientX; this.stick.y = e.clientY;
       showKnob();
-    });
-    const up = (e) => {
-      if (e.pointerId !== this.stick.id) return;
-      this.stick.id = null;
-      this.stick.x = this.stick.ox; this.stick.y = this.stick.oy;
-      showKnob();
-    };
-    zone.addEventListener('pointerup', up);
-    zone.addEventListener('pointercancel', up);
+    }, true);
+    const up = (e) => { if (e.pointerId === this.stick.id) this.releaseStick(); };
+    for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, up, true);
+    zone.addEventListener('lostpointercapture', up);
 
+    const btns = {};
     const btn = (sel, down, release) => {
       const el = this.root.querySelector(sel);
+      let id = null;
+      const end = () => {
+        if (id === null) return;
+        id = null;
+        el.classList.remove('down');
+        release && release();
+      };
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         this.touchUsed = true;
-        el.setPointerCapture(e.pointerId);
+        try { el.setPointerCapture(e.pointerId); } catch {}
+        id = e.pointerId;
         el.classList.add('down');
         down();
         if (navigator.vibrate) try { navigator.vibrate(8); } catch {}
       });
-      const end = () => { el.classList.remove('down'); release && release(); };
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
+      for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => { if (e.pointerId === id) end(); }, true);
+      el.addEventListener('lostpointercapture', end);
+      btns[sel] = { el, end };
     };
     btn('#btnA', () => { this.state.aPress = true; });
     btn('#btnB', () => { this.state.bPress = true; this.touchB = true; }, () => { this.touchB = false; this.state.bRelease = true; });
     btn('#btnP', () => { this.state.pPress = true; });
+
+    // Safety net: when a finger lifts, anything no finger is still touching gets released.
+    const sweep = (e) => {
+      const touching = (el) => [...e.touches].some((t) => el.contains(document.elementFromPoint(t.clientX, t.clientY)));
+      const onLeft = [...e.touches].some((t) => t.clientX < innerWidth / 2);
+      if (this.stick.id !== null && !onLeft) this.releaseStick();
+      for (const b of Object.values(btns)) if (!touching(b.el)) b.end();
+    };
+    addEventListener('touchend', sweep, true);
+    addEventListener('touchcancel', sweep, true);
+    this.releaseButtons = () => { for (const b of Object.values(btns)) b.end(); };
+    addEventListener('blur', () => this.reset());
+  }
+
+  // Let go of everything (on pause, menus, leaving the app).
+  reset() {
+    if (this.releaseStick) this.releaseStick();
+    if (this.releaseButtons) this.releaseButtons();
+    this.touchB = false;
+    this.keys.clear();
+    this.clearEdges();
   }
 
   read() {

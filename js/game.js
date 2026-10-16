@@ -64,7 +64,7 @@ export class Game {
     this.input = {};
     this.powers = new PowerSystem(this);
     this.teams = [0, 1].map((i) => ({
-      idx: i, kit: KITS[i], score: 0, defX: i === 0 ? 0 : W, energy: 100,
+      idx: i, kit: { ...KITS[i] }, score: 0, defX: i === 0 ? 0 : W, energy: 100,
       players: ROLES.map((r, j) => makePlayer(i, r, j)),
       stats: { shots: 0, goals: 0, saves: 0, steals: 0, fouls: 0, turnovers: 0, suspensions: 0 },
     }));
@@ -74,11 +74,22 @@ export class Game {
     const pick = () => TEMPLATE_LIST[(Math.random() * TEMPLATE_LIST.length) | 0];
     for (const t of this.teams) {
       const cb = t.players.find((p) => p.role === 'CB');
+      const teamOf = (pr) => Object.assign(t.kit, { he: `הנבחרת של ${pr.nameHe}`, to: `לנבחרת של ${pr.nameHe}`, abbr: pr.nameHe });
       if (t.idx === h) {
         this.profile = profileById(this.opts.hero);
         this.template = TEMPLATES[this.opts.power] || TEMPLATES.lightning;
         cb.hero = heroFromProfile(this.profile, this.template);
         this.powers.configure(t.idx, this.template, this.profile, cb);
+        teamOf(this.profile);
+      } else if (this.opts.rivalHero) {
+        // sometimes the computer picks one of the other kids as its hero
+        const pr = profileById(this.opts.rivalHero);
+        let tp = TEMPLATES[this.opts.rivalPower] || pick();
+        if (tp.shirt === '#ffd23f') tp = { ...tp, shirt: '#e8453c', trim: '#fff4ec', bg: ['#b3261e', '#ff7a6b'], aura: '#ffd0c8' };
+        cb.hero = heroFromProfile(pr, tp);
+        this.powers.configure(t.idx, tp, pr, cb);
+        teamOf(pr);
+        this.rivalProfile = pr;
       } else {
         // the computer's hero gets a random power each match (Venom keeps his look)
         let tp = TEMPLATES[this.opts.rivalPower] || pick();

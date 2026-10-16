@@ -86,17 +86,23 @@
     </div>
     <p class="fine">גרפיקה: <span id="gfx">…</span></p>
   </div>
-  <aside class="hero-card" aria-label="הגיבור שלך">
-    <p class="eyebrow">הגיבור שלך</p>
-    <canvas id="heroPreview" aria-hidden="true"></canvas>
-    <strong id="heroName">איתן הברק</strong>
-    <span id="heroAbout"></span>
-    <div class="seg" data-key="hero" id="heroSeg"></div>
-    <div class="seg" data-key="power" id="powerSeg"></div>
-  </aside>
  </div>
 </section>
 
+
+<section id="pick" class="screen" hidden>
+  <div class="pick-panel">
+    <header class="pick-head">
+      <button id="pickBack" class="ghost">חזרה</button>
+      <div>
+        <p class="eyebrow" id="pickStep">שלב 1 מתוך 2</p>
+        <h2 id="pickTitle">בחרו נבחרת</h2>
+      </div>
+    </header>
+    <div class="pick-grid" id="pickTeams"></div>
+    <div class="pick-grid" id="pickPowers" hidden></div>
+  </div>
+</section>
 
 <section id="pause" class="screen" hidden>
   <div class="panel small">

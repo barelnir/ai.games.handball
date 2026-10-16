@@ -308,6 +308,14 @@ function drawHairFront(R, h, X, headY, HR, hair, skin, dirX, side, t, kit) {
     case 'buzz':
       E(R, X, headY - HR * 0.6, HR - 0.01, HR * 0.42, hair);
       break;
+    case 'fringe': {
+      cap(0);
+      for (let i = 0; i < 4; i++) {
+        const bx = X - 0.15 + i * 0.1 + (side ? dirX * 0.03 : 0);
+        R.tri(bx - 0.07, top + 0.04, bx + 0.07, top + 0.04, bx + 0.01, top + 0.16, hair);
+      }
+      break;
+    }
     case 'swoop': {
       // short sides, big tufty top swept up and to one side
       const d = side ? dirX : 1;

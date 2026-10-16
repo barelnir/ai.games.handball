@@ -37,10 +37,7 @@ async function boot() {
   addEventListener('orientationchange', () => setTimeout(resize, 200));
   startDemo();
   bindUI();
-  preview = createRenderer($('#heroPreview'));
-  const dpr = pixelRatio(), pc = preview.canvas;
-  pc.width = Math.round(pc.clientWidth * dpr) || 300; pc.height = Math.round(pc.clientHeight * dpr) || 300;
-  syncHero();
+  buildPick();
   requestAnimationFrame(frame);
   if ('serviceWorker' in navigator && location.protocol === 'https:' && window.top === window) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -85,11 +82,57 @@ function resize() {
   $('#rotate').hidden = !(portrait && mode === 'play');
 }
 
-let preview = null;
-function syncHero() {
-  const pr = profileById(settings.hero), tp = TEMPLATES[settings.power] || TEMPLATES.lightning;
-  $('#heroName').textContent = tp.title(pr.nameHe).replace('!', '');
-  $('#heroAbout').textContent = tp.about;
+// ------------------------------------------------------------------ pick a team, then a power
+// Each card has a small canvas drawn with the 2D renderer (keeps WebGL contexts to one).
+const pick = { step: 'team', teams: [], powers: [] };
+function card(parent, title, sub, onPick) {
+  const b = document.createElement('button');
+  b.className = 'pick-card';
+  b.innerHTML = `<canvas aria-hidden="true"></canvas><b></b><small></small>`;
+  b.querySelector('b').textContent = title;
+  b.querySelector('small').textContent = sub;
+  b.addEventListener('click', onPick);
+  parent.appendChild(b);
+  return { el: b, r: createRenderer(b.querySelector('canvas'), { preferGL: false }) };
+}
+function buildPick() {
+  pick.teams = PROFILES.map((pr) => ({ pr, ...card($('#pickTeams'), `הנבחרת של ${pr.nameHe}`, `${pr.nameHe} הוא הגיבור`, () => {
+    settings.hero = pr.id; save(); showPick('power');
+  }) }));
+  pick.teams.forEach((c) => { if (c.pr.girl) c.el.querySelector('small').textContent = `${c.pr.nameHe} היא הגיבורה`; });
+  pick.powers = Object.values(TEMPLATES).map((tp) => ({ tp, ...card($('#pickPowers'), '', tp.about, () => {
+    settings.power = tp.key; save(); startMatch();
+  }) }));
+  $('#pickBack').addEventListener('click', () => (pick.step === 'power' ? showPick('team') : toMenu()));
+}
+function showPick(step) {
+  pick.step = step;
+  const pr = profileById(settings.hero);
+  $('#pickTeams').hidden = step !== 'team';
+  $('#pickPowers').hidden = step !== 'power';
+  $('#pickStep').textContent = step === 'team' ? 'שלב 1 מתוך 2' : 'שלב 2 מתוך 2';
+  $('#pickTitle').textContent = step === 'team' ? 'בחרו נבחרת' : `בחרו כוח מיוחד ל${pr.nameHe}`;
+  pick.teams.forEach((c) => c.el.classList.toggle('last', c.pr.id === settings.hero));
+  pick.powers.forEach((c) => {
+    c.el.querySelector('b').textContent = c.tp.title(pr.nameHe).replace('!', '');
+    c.el.classList.toggle('last', c.tp.key === settings.power);
+  });
+  if (mode !== 'pick') setMode('pick');
+  const dpr = pixelRatio();
+  for (const c of step === 'team' ? pick.teams : pick.powers) {
+    const cv = c.r.canvas;
+    cv.width = Math.round(cv.clientWidth * dpr) || 300; cv.height = Math.round(cv.clientHeight * dpr) || 300;
+  }
+}
+function renderPick() {
+  const list = pick.step === 'team' ? pick.teams : pick.powers;
+  for (const c of list) {
+    const r = c.r, cv = r.canvas;
+    const pr = c.pr || profileById(settings.hero), tp = c.tp || TEMPLATES[settings.power] || TEMPLATES.lightning;
+    r.begin(0, -1.0, cv.height / 4.6, T.TP.clear);
+    drawPortrait(r, pr, tp, now);
+    r.end();
+  }
 }
 
 function startDemo() {
@@ -105,20 +148,30 @@ function startMatch() {
     rules: settings.rules,
     hero: settings.hero,
     power: settings.power,
+    // sometimes the computer's team is led by one of the other kids
+    rivalHero: Math.random() < 0.4 ? otherKid(settings.hero) : null,
   });
+  $('.board .home .abbr').textContent = game.teams[0].kit.abbr;
+  $('.board .away .abbr').textContent = game.teams[1].kit.abbr;
   game.input = input.state;
   setMode('play');
   requestWakeLock();
   if (input.touchUsed || matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
 }
 
+function otherKid(id) {
+  const others = PROFILES.filter((p) => p.id !== id);
+  return others.length ? others[(Math.random() * others.length) | 0].id : null;
+}
+
 function setMode(m) {
   mode = m;
-  input.clearEdges();
+  input.reset();
   $('#menu').hidden = m !== 'menu';
+  $('#pick').hidden = m !== 'pick';
   $('#pause').hidden = m !== 'paused';
   $('#break').hidden = m !== 'break';
-  $('#hud').hidden = m === 'menu';
+  $('#hud').hidden = m === 'menu' || m === 'pick';
   $('#touch').hidden = m !== 'play';
   if (m !== 'menu') $('#rules').hidden = true;
   resize();
@@ -136,9 +189,6 @@ document.addEventListener('visibilitychange', () => {
 
 // ------------------------------------------------------------------ UI
 function bindUI() {
-  // hero picker: one button per player profile (more come from photos)
-  $('#heroSeg').innerHTML = PROFILES.map((p) => `<button data-v="${p.id}">${p.nameHe}</button>`).join('');
-  $('#powerSeg').innerHTML = Object.values(TEMPLATES).map((t) => `<button data-v="${t.key}">${t.label}</button>`).join('');
   document.querySelectorAll('.seg').forEach((seg) => {
     const key = seg.dataset.key;
     const sync = () => seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === String(settings[key])));
@@ -146,11 +196,11 @@ function bindUI() {
       const b = e.target.closest('button');
       if (!b) return;
       settings[key] = b.dataset.v;
-      save(); sync(); syncHero();
+      save(); sync();
     });
     sync();
   });
-  $('#play').addEventListener('click', startMatch);
+  $('#play').addEventListener('click', () => { sound.unlock(); showPick('team'); });
   $('#openRules').addEventListener('click', () => { $('#rules').hidden = false; });
   $('#toRules').addEventListener('click', () => { $('#rules').hidden = false; });
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { $('#' + b.dataset.close).hidden = true; }));
@@ -208,28 +258,24 @@ function frame(t) {
   const dt = Math.min(0.1, (t - last) / 1000 || 0);
   last = t;
   now += dt;
-  if (mode === 'play' || mode === 'menu') {
+  const demo = mode === 'menu' || mode === 'pick';
+  if (mode === 'play' || demo) {
     if (mode === 'play') input.read();
     acc += dt;
     let n = 0;
     while (acc >= STEP && n < 8) { game.step(STEP); acc -= STEP; n++; }
     if (n === 8) acc = 0;
     handleEvents();
-    if (mode === 'menu') {
+    if (demo) {
       if (game.state === 'halftime') game.startSecondHalf();
       else if (game.state === 'fulltime') startDemo();
     } else if (game.state === 'halftime' || game.state === 'fulltime') showBreak();
   }
-  if (mode === 'menu' && preview) {
-    const c = preview.canvas;
-    preview.begin(0, -0.75, c.height / 5.6, T.TP.clear);
-    drawPortrait(preview, profileById(settings.hero), TEMPLATES[settings.power] || TEMPLATES.lightning, now);
-    preview.end();
-  }
+  if (mode === 'pick') renderPick();
   excite = Math.max(0, excite - dt * 0.35);
   updateCamera(dt);
   render();
-  if (mode !== 'menu') updateHUD();
+  if (mode !== 'menu' && mode !== 'pick') updateHUD();
 }
 
 function handleEvents() {
@@ -266,7 +312,7 @@ function handleEvents() {
 function updateCamera(dt) {
   const c = R.canvas;
   let ppm, tx, ty;
-  if (mode === 'menu') {
+  if (mode === 'menu' || mode === 'pick') {
     ppm = Math.min(c.width / 50, c.height / 27);
     tx = W / 2 - (c.width / ppm) * 0.12; ty = H / 2;
   } else {
@@ -281,7 +327,7 @@ function updateCamera(dt) {
   const minX = -4.5, maxX = W + 4.5, minY = -4, maxY = H + 3.5;
   tx = hw * 2 >= maxX - minX ? W / 2 : Math.min(Math.max(tx, minX + hw), maxX - hw);
   ty = hh * 2 >= maxY - minY ? H / 2 : Math.min(Math.max(ty, minY + hh), maxY - hh);
-  const k = mode === 'menu' ? 1 : 1 - Math.exp(-dt * 4.5);
+  const k = mode === 'menu' || mode === 'pick' ? 1 : 1 - Math.exp(-dt * 4.5);
   cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; cam.ppm = ppm;
 }
 
@@ -433,7 +479,7 @@ function showBreak() {
   const g = game;
   const [a, z] = g.teams;
   const half = g.state === 'halftime';
-  $('#brEyebrow').textContent = half ? 'מחצית' : a.score > z.score ? 'סיום · ניצחתם!' : a.score < z.score ? 'סיום · הצפעונים ניצחו' : 'סיום · תיקו';
+  $('#brEyebrow').textContent = half ? 'מחצית' : a.score > z.score ? 'סיום · ניצחתם!' : a.score < z.score ? `סיום · ${z.kit.he} ניצחו` : 'סיום · תיקו';
   $('#brScore').textContent = `${a.score} : ${z.score}`;
   const rows = [['שערים', 'goals'], ['זריקות', 'shots'], ['הצלות', 'saves'], ['חטיפות', 'steals'], ['עבירות', 'fouls'], ['2 דקות', 'suspensions']];
   $('#brStats').innerHTML = rows.map(([l, k]) => `<tr><td>${a.stats[k]}</td><td>${l}</td><td>${z.stats[k]}</td></tr>`).join('');

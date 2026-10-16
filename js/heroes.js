@@ -9,7 +9,19 @@ export const PROFILES = [
   {
     id: 'eitan', name: 'Eitan', nameHe: 'איתן',
     skin: '#f2c6a4', skinShade: '#e2a684', hair: '#6e4a2a', hairHi: '#9b7046', brow: '#4a3120',
-    iris: '#6a4225', glasses: '#2a1712', style: 'swoop',
+    iris: '#6a4225', glasses: '#2a1712', style: 'swoop', mouth: 'smirk',
+  },
+  {
+    // light-brown hair pulled back in a ponytail, wispy strands, big smile with a missing front tooth, earrings
+    id: 'emma', name: 'Emma', nameHe: 'אמה',
+    skin: '#f3c8a8', skinShade: '#e3a888', hair: '#8a6845', hairHi: '#b9946a', brow: '#5a3d26',
+    iris: '#4a2e1c', glasses: null, style: 'ponytail', mouth: 'grin', earrings: '#e8c25a', girl: true,
+  },
+  {
+    // ash-brown hair with a fringe falling over the forehead, short sides, calm closed smile
+    id: 'eyal', name: 'Eyal', nameHe: 'אייל',
+    skin: '#f1c9a9', skinShade: '#dfa785', hair: '#7d6646', hairHi: '#b39b74', brow: '#5a4530',
+    iris: '#4e3220', glasses: null, style: 'fringe', mouth: 'smile',
   },
 ];
 export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES[0];
@@ -18,7 +30,7 @@ export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES
 export const RIVAL = {
   id: 'venom', name: 'Venom', nameHe: 'ארס',
   skin: '#e0ac85', skinShade: '#c98f6a', hair: '#3a1838', hairHi: '#6b3a66', brow: '#2a1028',
-  iris: '#3fbf4a', glasses: null, style: 'short',
+  iris: '#3fbf4a', glasses: null, style: 'short', mouth: 'smirk',
 };
 
 // fx: what the power does.
@@ -66,7 +78,7 @@ export const TEMPLATE_LIST = Object.values(TEMPLATES);
 export function heroFromProfile(pr, tp) {
   return {
     role: 'CB', pos: 'Centre back', name: pr.name, nameHe: pr.nameHe, build: 'normal', custom: true,
-    skin: pr.skin, hair: pr.hair, style: pr.style,
+    skin: pr.skin, hair: pr.hair, style: pr.style === 'ponytail' ? 'pony' : pr.style,
     acc: [...(pr.glasses ? ['glasses'] : []), ...tp.gameAcc],
     emblem: tp.gameEmblem,
   };
@@ -173,7 +185,14 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     T(R, -1.0, hy - 0.66, -1.75, hy - 0.95 + w, -1.65, hy - 0.72 + w, c, 0.03);
     T(R, -1.0, hy - 0.58, -1.7, hy - 0.45 - w, -1.6, hy - 0.3 - w, c, 0.03);
   }
+  if (pr.style === 'ponytail') { // tail peeking out behind the head, swinging a little
+    const sw = Math.sin(t * 3) * 0.08;
+    E(R, 0.9 + sw, hy - 0.95, 0.42, 0.3, HAIR);
+    E(R, 1.2 + sw * 1.4, hy - 0.55, 0.3, 0.42, HAIR);
+    R.ellipse(0.72, hy - 0.98, 0.12, 0.1, col('#e85d8a')); // hair tie
+  }
   for (const s of [-1, 1]) { E(R, s * 1.08, hy + 0.12, 0.2, 0.27, SKIN); R.ellipse(s * 1.1, hy + 0.12, 0.08, 0.13, SKIN_SH); }
+  if (pr.earrings) for (const s of [-1, 1]) ink.E(R, s * 1.1, hy + 0.42, 0.07, 0.07, col(pr.earrings));
   E(R, 0, hy, 1.1, 1.05, SKIN);
   R.ellipse(0, hy + 0.75, 0.55, 0.22, col(pr.skinShade, 0.25)); // chin shade
 
@@ -185,12 +204,27 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     }
   }
   R.ellipse(0, hy - 0.75, 1.08, 0.46, HAIR);
-  R.ellipse(-1.02, hy - 0.25, 0.14, 0.32, HAIR); // sideburns
-  R.ellipse(1.02, hy - 0.25, 0.14, 0.32, HAIR);
+  if (pr.style === 'fringe') { // bangs falling over the forehead
+    for (const [x0, x1, tip] of [[-0.95, -0.45, -0.75], [-0.55, -0.05, -0.32], [-0.15, 0.35, 0.12], [0.25, 0.75, 0.52], [0.6, 1.0, 0.85]]) {
+      T(R, x0, hy - 0.75, x1, hy - 0.78, tip, hy - 0.4, HAIR, 0.05);
+    }
+    R.ellipse(0, hy - 0.78, 1.05, 0.38, HAIR);
+  }
+  if (pr.style === 'ponytail') { // pulled back with a centre parting and loose strands
+    R.line(0, hy - 1.15, 0.05, hy - 0.68, 0.025, col(pr.skinShade));
+    for (const s of [-1, 1]) {
+      R.line(s * 1.04, hy - 0.5, s * 1.16, hy - 0.05, 0.04, HAIR);
+      R.line(s * 1.1, hy - 0.4, s * 1.2, hy + 0.12 + Math.sin(t * 2 + s) * 0.03, 0.022, HAIR);
+    }
+  } else {
+    R.ellipse(-1.02, hy - 0.25, 0.14, 0.32, HAIR); // sideburns
+    R.ellipse(1.02, hy - 0.25, 0.14, 0.32, HAIR);
+  }
   for (const [a, b, c, d] of [[-0.5, -1.0, -0.2, -1.3], [0.1, -1.05, 0.45, -1.4], [0.55, -0.95, 0.85, -1.2]]) R.line(a, hy + b + 0.2, c, hy + d + 0.2, 0.035, HAIR_HI);
 
   // eyebrows (thick)
-  for (const s of [-1, 1]) R.line(s * 0.7, hy - 0.42, s * 0.18, hy - 0.47, 0.065, col(pr.brow));
+  for (const s of [-1, 1]) R.line(s * 0.7, hy - 0.42, s * 0.18, hy - 0.47, pr.girl ? 0.045 : 0.065, col(pr.brow));
+  if (pr.girl) for (const s of [-1, 1]) for (let k = 0; k < 3; k++) R.line(s * (0.62 - k * 0.05), hy - 0.2, s * (0.68 - k * 0.04), hy - 0.27, 0.014, TP.ink); // lashes
 
   // glasses frames, then eyes inside them
   const laser = v.acc.includes('laser');
@@ -220,10 +254,27 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
   R.ellipse(-0.04, hy + 0.25, 0.04, 0.03, col('#ffffff', 0.5));
   R.ellipse(-0.62, hy + 0.38, 0.2, 0.1, TP.blush);
   R.ellipse(0.62, hy + 0.38, 0.2, 0.1, TP.blush);
-  const m = [[-0.38, 0.55], [-0.18, 0.62], [0.05, 0.63], [0.25, 0.58], [0.4, 0.49]];
-  for (let i = 0; i < m.length - 1; i++) R.line(m[i][0], hy + m[i][1], m[i + 1][0], hy + m[i + 1][1], 0.04, TP.ink);
-  R.line(-0.15, hy + 0.67, 0.15, hy + 0.67, 0.035, LIP);
-  R.line(0.44, hy + 0.46, 0.47, hy + 0.55, 0.025, SKIN_SH);
+  if (pr.mouth === 'grin') {
+    // big open smile with a gap where a front tooth fell out
+    // a wide "D" shaped smile: dark mouth, top half hidden by the face, teeth along the top edge
+    ink.E(R, 0, hy + 0.46, 0.44, 0.26, col('#7a2a3a'));
+    R.rect(0, hy + 0.33, 0.5, 0.13, SKIN);
+    R.line(-0.44, hy + 0.46, 0.44, hy + 0.46, 0.03, TP.ink);
+    R.rect(-0.21, hy + 0.52, 0.15, 0.055, TP.white, 0, 0.02);
+    R.rect(0.21, hy + 0.52, 0.15, 0.055, TP.white, 0, 0.02);
+    R.rect(0.0, hy + 0.52, 0.025, 0.055, TP.white, 0, 0.01);
+    R.ellipse(0, hy + 0.64, 0.2, 0.06, col('#ff8a9a'));
+    for (const s of [-1, 1]) R.line(s * 0.44, hy + 0.47, s * 0.52, hy + 0.38, 0.025, SKIN_SH); // smile lines
+  } else if (pr.mouth === 'smile') {
+    const m = [[-0.34, 0.52], [-0.16, 0.6], [0.16, 0.6], [0.34, 0.52]];
+    for (let i = 0; i < m.length - 1; i++) R.line(m[i][0], hy + m[i][1], m[i + 1][0], hy + m[i + 1][1], 0.04, TP.ink);
+    R.line(-0.12, hy + 0.65, 0.12, hy + 0.65, 0.03, LIP);
+  } else {
+    const m = [[-0.38, 0.55], [-0.18, 0.62], [0.05, 0.63], [0.25, 0.58], [0.4, 0.49]];
+    for (let i = 0; i < m.length - 1; i++) R.line(m[i][0], hy + m[i][1], m[i + 1][0], hy + m[i + 1][1], 0.04, TP.ink);
+    R.line(-0.15, hy + 0.67, 0.15, hy + 0.67, 0.035, LIP);
+    R.line(0.44, hy + 0.46, 0.47, hy + 0.55, 0.025, SKIN_SH);
+  }
 
   if (v.acc.includes('headband')) B(R, 0, hy - 0.62, 1.07, 0.11, col(v.trim), 0.08);
   if (v.acc.includes('fireball')) {
