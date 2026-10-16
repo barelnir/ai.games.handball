@@ -2,7 +2,7 @@
 
 A 2D handball game in plain HTML and JavaScript, drawn with **WebGL** and playable on a phone or a desktop browser. No build step and no libraries.
 
-You play the **Hornets** (yellow) against the **Vipers** (red), 7 v 7 on a 40 × 20 m court with real IHF markings, two referees and a crowd.
+You play the **Hornets** (yellow) against the **Vipers** (red), 7 v 7 on a 40 × 20 m court with real IHF markings, two referees, a crowd and background music. Every player is a big-headed cartoon hero with their own look (see `mock/` for the character sheet).
 
 ## Play
 
@@ -11,7 +11,7 @@ You play the **Hornets** (yellow) against the **Vipers** (red), 7 v 7 on a 40 ×
 
 | Action | Phone | Keyboard |
 | --- | --- | --- |
-| Move | Left thumb anywhere (floating joystick) | WASD / arrows |
+| Move | Arrow pad, bottom-left (or drag anywhere on the left half) | WASD / arrows |
 | Pass · switch player | PASS / SWITCH | J or Z |
 | Jump shot · steal / block | Hold SHOOT and release · tap STEAL | Hold K or X · tap |
 | Aim a shot | Push the stick up or down while winding up | W / S |
@@ -39,17 +39,18 @@ js/main.js          Boot, game loop (fixed 60 Hz), camera, HUD, menus
 js/game.js          The match: players, ball physics, rules, referees, AI (no DOM; runs in Node too)
 js/court.js         Court geometry in metres (goal area "D", 9 m line, 7 m mark…)
 js/render.js        Renderer: WebGL 2 (instanced SDF shapes, one draw call) with a Canvas 2D fallback
-js/draw.js          Arena, court, goals, players, referees and ball, built from 4 primitives
+js/toon.js          Cartoon art: hero squads, court, goals, referees, ball (built from 5 primitives)
 js/input.js         Keyboard + multi-touch joystick and buttons
-js/audio.js         Synthesised whistle, ball and crowd sounds (WebAudio)
+js/audio.js         Synthesised music loop, whistle, ball and crowd sounds (WebAudio, no audio files)
+mock/index.html     Character sheet / look-and-feel mock
 js/powers.js        Special powers framework (disabled, ready for later)
 sw.js, manifest     PWA: install to the home screen, works offline
 tests/sim.mjs       Headless AI-vs-AI matches (`npm test`)
 ```
 
-**Graphics:** every shape (ellipse, rounded rectangle, ring, capsule line) is one instance of a quad. A GLSL fragment shader shades it with an anti-aliased signed-distance function, so the whole frame is a single `drawArraysInstanced(…, 6, n)` call. Browsers without WebGL 2 automatically use the Canvas 2D renderer, which has the same API. The renderer in use is shown on the menu screen.
+**Graphics:** every shape (ellipse, rounded rectangle, ring, capsule line, rounded triangle) is one instance of a quad. A GLSL fragment shader shades it with an anti-aliased signed-distance function, so the whole frame is a single `drawArraysInstanced(…, 6, n)` call. Browsers without WebGL 2 automatically use the Canvas 2D renderer, which has the same API. The renderer in use is shown on the menu screen.
 
-**Figures:** small upright "3/4 view" players drawn on a top-down court. Height (jumps, ball arcs) lifts things up the screen. Each player has a random skin tone, hair colour and hairstyle, animated legs and arms, and poses for shooting, stealing, blocking and goalkeeper dives.
+**Heroes:** chibi-style players (head about half the height) with ink outlines, drawn upright on a top-down court. Each squad has 7 named heroes with their own hair, masks, capes, goggles and chest emblems, and poses for running, dribbling, jump shots, stealing, blocking and goalkeeper dives. `PACE` in `js/game.js` sets the overall game speed.
 
 ## Special powers (next step)
 
@@ -57,7 +58,7 @@ tests/sim.mjs       Headless AI-vs-AI matches (`npm test`)
 
 1. add or edit entries in `POWERS` (four examples are there: Rocket Shot, Turbo Legs, Sticky Hands, Keeper Wall),
 2. set `POWERS_ENABLED = true`,
-3. optionally add visuals in `draw.js` by checking `player.effects`.
+3. optionally add visuals in `toon.js` by checking `player.effects`. Each hero already has a planned power in `SQUADS` (`toon.js`).
 
 ## Deploy (GitHub Pages)
 

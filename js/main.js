@@ -3,7 +3,7 @@
 import { Game } from './game.js';
 import { createRenderer } from './render.js';
 import { W, H, CY, POST_HI, Z2Y } from './court.js';
-import * as D from './draw.js';
+import * as T from './toon.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { POWERS_ENABLED, ENERGY_MAX } from './powers.js';
@@ -11,7 +11,7 @@ import { POWERS_ENABLED, ENERGY_MAX } from './powers.js';
 const $ = (s) => document.querySelector(s);
 const STEP = 1 / 60;
 
-const settings = { difficulty: 'normal', half: '300', rules: 'full', sound: true };
+const settings = { difficulty: 'normal', half: '300', rules: 'full', sound: true, music: true };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('handball7') || '{}')); } catch {}
 const save = () => { try { localStorage.setItem('handball7', JSON.stringify(settings)); } catch {} };
 
@@ -24,6 +24,7 @@ const cam = { x: W / 2, y: H / 2, ppm: 20 };
 const input = new Input($('#touch'));
 const sound = new Sound();
 sound.muted = !settings.sound;
+sound.musicOn = settings.music !== false;
 
 // ------------------------------------------------------------------ setup
 async function boot() {
@@ -85,6 +86,7 @@ async function requestWakeLock() {
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && mode === 'play') setMode('paused');
+  if (sound.ctx) { if (document.hidden) sound.ctx.suspend(); else sound.ctx.resume(); }
   if (!document.hidden && mode === 'play') requestWakeLock();
 });
 
@@ -114,6 +116,13 @@ function bindUI() {
   $('#brNext').addEventListener('click', () => {
     if (game.state === 'halftime') { game.startSecondHalf(); setMode('play'); }
     else startMatch();
+  });
+  const mb = $('#btnMusic');
+  mb.classList.toggle('off', !sound.musicOn);
+  mb.addEventListener('click', () => {
+    sound.unlock();
+    sound.setMusic(!sound.musicOn); settings.music = sound.musicOn; save();
+    mb.classList.toggle('off', !sound.musicOn);
   });
   const sb = $('#btnSound');
   sb.classList.toggle('off', sound.muted);
@@ -198,7 +207,8 @@ function updateCamera(dt) {
     ppm = Math.min(c.width / 50, c.height / 27);
     tx = W / 2 - (c.width / ppm) * 0.12; ty = H / 2;
   } else {
-    ppm = Math.min(c.height / 15.5, c.width / 24);
+    // close camera: about 10 m of court top-to-bottom on a phone held sideways
+    ppm = Math.min(c.height / 10, c.width / 17);
     const b = game.ball, r = b.owner || b;
     const s = game.teams[game.poss].defX === 0 ? 1 : -1;
     tx = r.x + s * 2.5; ty = r.y - (b.z || 0) * Z2Y * 0.5;
@@ -213,16 +223,17 @@ function updateCamera(dt) {
 
 // ------------------------------------------------------------------ render
 const ents = [];
+const HINT = T.col('#ffd23f'), SOFT = T.col('#ffffff', 0.45);
 function render() {
   const g = game, b = g.ball;
-  R.begin(cam.x, cam.y, cam.ppm, D.PAL.clear);
-  D.drawArena(R, now, excite);
-  D.drawGoalBack(R, 0);
-  D.drawGoalBack(R, W);
+  R.begin(cam.x, cam.y, cam.ppm, T.TP.clear);
+  T.drawToonArena(R, now, excite);
+  T.drawToonGoalBack(R, 0);
+  T.drawToonGoalBack(R, W);
 
   const c = g.controlled;
-  if (c && c.active && mode !== 'menu') D.drawMarker(R, c, now);
-  if (g.passHint) D.drawMarker(R, g.passHint, now, D.PAL.markerSoft);
+  if (c && c.active && mode !== 'menu') T.drawMarker(R, c, now, HINT);
+  if (g.passHint) T.drawMarker(R, g.passHint, now, SOFT);
 
   ents.length = 0;
   for (const p of g.all) ents.push({ y: p.y, p });
@@ -235,20 +246,21 @@ function render() {
   for (const e of ents) {
     if (e.p) {
       const p = e.p;
-      D.drawPlayer(R, p, g.teams[p.team].kit, {
+      T.drawHero(R, p.hero, g.teams[p.team].kit, p, {
+        t: now,
         hasBall: b.owner === p,
         dribbling: b.owner === p && p.carry === 'drib',
         alert: alert && p.gk && g.teams[p.team].defX === b.goalX,
       });
     } else if (e.ref) {
-      D.drawReferee(R, e.ref, g.signal && e.i === 0 ? g.signal.type : null);
+      T.drawToonRef(R, e.ref, g.signal && e.i === 0 ? g.signal.type : null, now);
     } else if (e.ball) {
-      if (b.state !== 'dead' || g.state === 'goal') D.drawBall(R, b);
-    } else D.post(R, e.post, POST_HI);
+      if (b.state !== 'dead' || g.state === 'goal') T.drawToonBall(R, b.x, b.y, b.z, b.owner ? 0 : now);
+    } else T.toonPost(R, e.post, POST_HI);
   }
 
   if (c && c.active && mode !== 'menu') {
-    D.drawHeadTag(R, c, now, D.PAL.hint);
+    T.drawHeadTag(R, c, now, HINT);
     drawRuleDots(c);
     if (c.charging) drawAim(c);
   }
@@ -257,16 +269,20 @@ function render() {
 
 function drawRuleDots(p) {
   if (!game.full || game.ball.owner !== p || p.gk) return;
-  const y = p.y - p.z * Z2Y - 1.62;
+  const y = p.y - p.z * Z2Y - 1.5;
   if (p.carry === 'fresh' || p.carry === 'held' || (game.lock && game.lock.p === p && game.state === 'play')) {
     const left = 3 - p.holdT;
     for (let i = 0; i < 3; i++) {
-      R.ellipse(p.x - 0.2 + i * 0.2, y, 0.06, 0.06, i < left ? D.PAL.marker : D.PAL.markerSoft);
+      R.ellipse(p.x - 0.2 + i * 0.2, y, 0.075, 0.075, T.TP.ink);
+      R.ellipse(p.x - 0.2 + i * 0.2, y, 0.055, 0.055, i < left ? T.TP.white : SOFT);
     }
   }
   if (p.carry === 'held') {
     const steps = 3 - Math.floor(p.stepDist / 0.87);
-    for (let i = 0; i < 3; i++) R.rect(p.x - 0.2 + i * 0.2, y - 0.17, 0.045, 0.045, i < steps ? D.PAL.hint : D.PAL.markerSoft);
+    for (let i = 0; i < 3; i++) {
+      R.rect(p.x - 0.2 + i * 0.2, y - 0.19, 0.065, 0.065, T.TP.ink, 0, 0.02);
+      R.rect(p.x - 0.2 + i * 0.2, y - 0.19, 0.045, 0.045, i < steps ? HINT : SOFT, 0, 0.01);
+    }
   }
 }
 
@@ -276,7 +292,7 @@ function drawAim(p) {
   const ty = CY + (Math.abs(my) > 0.25 ? my * 1.3 : 0);
   const x0 = p.x, y0 = p.y, dx = ax - x0, dy = ty - y0, d = Math.hypot(dx, dy);
   const n = Math.floor(d / 0.6);
-  const col = D.col('#ffd23f', 0.35 + p.charge * 0.6);
+  const col = T.col('#ffd23f', Math.round((0.35 + p.charge * 0.6) * 20) / 20);
   for (let i = 1; i < n; i += 2) {
     const a = i / n, b2 = Math.min(1, (i + 1) / n);
     R.line(x0 + dx * a, y0 + dy * a, x0 + dx * b2, y0 + dy * b2, 0.035 + p.charge * 0.03, col);

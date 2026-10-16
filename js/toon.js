@@ -537,3 +537,18 @@ export function toonPost(R, gx, y) {
   R.line(gx, y, gx, y - h, 0.08 + O, TP.ink);
   for (let i = 0; i < 7; i++) R.line(gx, y - (h * i) / 7, gx, y - (h * (i + 1)) / 7, 0.08, i % 2 ? TP.postWhite : TP.postRed);
 }
+
+// ------------------------------------------------------------------ overlays
+export function drawMarker(R, p, t, c = TP.white) {
+  setInk(R);
+  const pulse = 1 + Math.sin(t * 6) * 0.06;
+  R.ring(p.x, p.y + 0.02, 0.4 * pulse, 0.16 * pulse, 0.035 + O, TP.ink);
+  R.ring(p.x, p.y + 0.02, 0.4 * pulse, 0.16 * pulse, 0.035, c);
+}
+
+// Bouncing arrow above the controlled hero's head.
+export function drawHeadTag(R, p, t, c) {
+  setInk(R);
+  const y = p.y - (p.z || 0) * Z2Y - 1.3 + Math.sin(t * 5) * 0.04;
+  T(R, p.x - 0.12, y - 0.12, p.x + 0.12, y - 0.12, p.x, y + 0.03, c, 0.02);
+}

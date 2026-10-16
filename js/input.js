@@ -1,5 +1,5 @@
 // Keyboard + touch controls. Produces { mx, my, aPress, bDown, bPress, bRelease, pPress }.
-//   Move:  WASD / arrows, or the floating joystick (left half of the screen)
+//   Move:  WASD / arrows, or the arrow pad (touch anywhere on the left half)
 //   A:     J / Z  – pass (attack) · switch player (defence)
 //   B:     K / X  – hold to wind up a jump shot, release to shoot (attack) · steal / block (defence)
 //   Power: L / C / Space – special power (slot reserved)
@@ -40,29 +40,45 @@ export class Input {
     addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'touch') document.body.classList.add('touch');
     }, true);
+    // Fixed arrow pad at bottom-left. A touch near the pad steers from its centre;
+    // a touch elsewhere on the left half steers from where the thumb landed.
     const zone = this.root.querySelector('#stickZone');
+    const R = 46;
+    this.arrows = {};
+    for (const d of ['up', 'right', 'down', 'left']) this.arrows[d] = this.base.querySelector('.arr.' + d);
+    const showKnob = () => {
+      const dx = this.stick.x - this.stick.ox, dy = this.stick.y - this.stick.oy, d = Math.hypot(dx, dy);
+      const k = d > R ? R / d : 1;
+      this.knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+      const on = d > 10;
+      this.arrows.right.classList.toggle('on', on && dx > d * 0.38);
+      this.arrows.left.classList.toggle('on', on && dx < -d * 0.38);
+      this.arrows.down.classList.toggle('on', on && dy > d * 0.38);
+      this.arrows.up.classList.toggle('on', on && dy < -d * 0.38);
+    };
     zone.addEventListener('pointerdown', (e) => {
       if (this.stick.id !== null) return;
       this.touchUsed = true;
       zone.setPointerCapture(e.pointerId);
       this.stick.id = e.pointerId;
-      this.stick.ox = this.stick.x = e.clientX;
-      this.stick.oy = this.stick.y = e.clientY;
-      this.base.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
-      this.knob.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
-      this.root.classList.add('stick-on');
+      const r = this.base.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const near = Math.hypot(e.clientX - cx, e.clientY - cy) < r.width;
+      this.stick.ox = near ? cx : e.clientX;
+      this.stick.oy = near ? cy : e.clientY;
+      this.stick.x = e.clientX; this.stick.y = e.clientY;
+      showKnob();
     });
     zone.addEventListener('pointermove', (e) => {
       if (e.pointerId !== this.stick.id) return;
       this.stick.x = e.clientX; this.stick.y = e.clientY;
-      const dx = e.clientX - this.stick.ox, dy = e.clientY - this.stick.oy, d = Math.hypot(dx, dy), m = 46;
-      const k = d > m ? m / d : 1;
-      this.knob.style.transform = `translate(${this.stick.ox + dx * k}px, ${this.stick.oy + dy * k}px)`;
+      showKnob();
     });
     const up = (e) => {
       if (e.pointerId !== this.stick.id) return;
       this.stick.id = null;
-      this.root.classList.remove('stick-on');
+      this.stick.x = this.stick.ox; this.stick.y = this.stick.oy;
+      showKnob();
     };
     zone.addEventListener('pointerup', up);
     zone.addEventListener('pointercancel', up);

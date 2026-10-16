@@ -15,7 +15,7 @@
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -34,7 +34,8 @@
   </div>
   <div id="banner" class="banner" aria-live="assertive"><strong id="bTitle"></strong><span id="bSub"></span></div>
   <div class="corner">
-    <button id="btnSound" class="ico" aria-label="Toggle sound">♪</button>
+    <button id="btnMusic" class="ico" aria-label="Music on or off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="3" fill="currentColor"/><circle cx="17.5" cy="16" r="3" fill="currentColor"/></svg></button>
+    <button id="btnSound" class="ico" aria-label="Sound effects on or off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
     <button id="btnFull" class="ico" aria-label="Fullscreen">⤢</button>
     <button id="btnPause" class="ico" aria-label="Pause">❚❚</button>
   </div>
@@ -45,8 +46,10 @@
 
 <div id="touch" hidden>
   <div id="stickZone"></div>
-  <div id="stick"></div>
-  <div id="knob"></div>
+  <div id="stick" aria-hidden="true">
+    <i class="arr up"></i><i class="arr right"></i><i class="arr down"></i><i class="arr left"></i>
+    <div id="knob"></div>
+  </div>
   <div class="pad">
     <button id="btnP" class="tb power" aria-label="Special power"><span>POWER</span><small>soon</small></button>
     <button id="btnA" class="tb a"><span id="lA">PASS</span></button>
@@ -56,9 +59,9 @@
 
 <section id="menu" class="screen">
   <div class="panel menu-panel">
-    <p class="eyebrow">7 v 7 · indoor · 40 × 20 m</p>
+    <p class="eyebrow">7 v 7 hero handball</p>
     <h1>Handball<br><span>Seven</span></h1>
-    <p class="lede">You play the <b class="c-home">Hornets</b> against the <b class="c-away">Vipers</b>. Take the ball through the 9-metre line, jump into the goal area and beat the keeper.</p>
+    <p class="lede">You are the <b class="c-home">Hornets</b>. Beat the <b class="c-away">Vipers</b>!</p>
     <div class="opts">
       <fieldset><legend>Opponent</legend>
         <div class="seg" data-key="difficulty">
@@ -72,13 +75,13 @@
       </fieldset>
       <fieldset><legend>Rules</legend>
         <div class="seg" data-key="rules">
-          <button data-v="full">Full IHF</button><button data-v="arcade">Arcade</button>
+          <button data-v="full">Real</button><button data-v="arcade">Easy</button>
         </div>
       </fieldset>
     </div>
     <div class="row">
       <button id="play" class="cta">Throw-off</button>
-      <button id="openRules" class="ghost">Rules &amp; controls</button>
+      <button id="openRules" class="ghost">How to play</button>
     </div>
     <p class="fine">Renderer: <span id="gfx">…</span></p>
   </div>
@@ -87,11 +90,11 @@
 
 <section id="pause" class="screen" hidden>
   <div class="panel small">
-    <h2>Time-out</h2>
+    <h2>Paused</h2>
     <div class="col">
       <button id="resume" class="cta">Resume</button>
       <button id="restart" class="ghost">Restart match</button>
-      <button id="toRules" class="ghost">Rules &amp; controls</button>
+      <button id="toRules" class="ghost">How to play</button>
       <button id="toMenu" class="ghost">Main menu</button>
     </div>
   </div>
@@ -112,55 +115,30 @@
 <section id="rules" class="screen" hidden>
   <div class="panel rules-panel">
     <header class="rules-head">
-      <h2>How handball works</h2>
+      <h2>How to play</h2>
       <button class="ghost close" data-close="rules">Back</button>
     </header>
     <div class="rules-body">
       <article>
-        <h3>The court</h3>
-        <p>40 × 20 m with a 3 × 2 m goal at each end. The solid <b>6-metre line</b> marks the goal area: only the goalkeeper may stand in it. Attackers may jump in, but must release the ball before landing. The dashed line is the <b>9-metre free-throw line</b>, and the short mark at 7 m is the penalty spot.</p>
-      </article>
-      <article>
-        <h3>Teams &amp; time</h3>
-        <p>Each side has 6 court players and a goalkeeper. A match is two halves of 30 minutes (shortened here) and teams change ends at half-time. After every goal the conceding team restarts with a <b>throw-off</b> from the centre.</p>
-      </article>
-      <article>
-        <h3>Carrying the ball</h3>
-        <ul>
-          <li><b>3 steps</b> – you may take at most three steps while holding the ball.</li>
-          <li><b>3 seconds</b> – you may hold it for at most three seconds.</li>
-          <li><b>Dribble</b> as long as you like, but once you catch it again you can't start a new dribble (double dribble).</li>
-        </ul>
-        <p>Breaking these gives the other team a free throw.</p>
-      </article>
-      <article>
-        <h3>Defending</h3>
-        <p>Use your body from the front to block. Pulling, pushing or hitting – especially from behind – is a foul and gives a free throw. If the foul destroys a clear chance to score, it's a <b>7-metre throw</b>: shooter against keeper.</p>
-      </article>
-      <article>
-        <h3>Punishments</h3>
-        <p>Repeated or dangerous fouls bring a <b>yellow card</b>, then a <b>2-minute suspension</b> (the team plays one short). A third suspension is a <b>red card</b>.</p>
-      </article>
-      <article>
-        <h3>Passive play</h3>
-        <p>A team can't keep the ball without trying to score. After the referee's raised-arm warning the attack has <b>4 passes</b> left before it must shoot.</p>
-      </article>
-      <article>
-        <h3>Restarts</h3>
-        <p><b>Throw-in</b> when the ball crosses a sideline. <b>Goalkeeper throw</b> when the attackers put it over the goal line (or the keeper saves it out). <b>Corner throw-in</b> when a defender last touched it.</p>
-      </article>
-      <article class="controls">
         <h3>Controls</h3>
-        <table>
-          <tr><th></th><th>Phone</th><th>Keyboard</th></tr>
-          <tr><td>Move</td><td>Left thumb anywhere</td><td>WASD / arrows</td></tr>
-          <tr><td>Pass · switch player</td><td>PASS / SWITCH</td><td>J or Z</td></tr>
-          <tr><td>Jump shot · steal</td><td>Hold SHOOT, release</td><td>Hold K or X</td></tr>
-          <tr><td>Aim a shot</td><td>Stick up or down</td><td>W / S while shooting</td></tr>
-          <tr><td>Special power</td><td>POWER</td><td>L</td></tr>
-          <tr><td>Pause</td><td>❚❚</td><td>P or Esc</td></tr>
-        </table>
-        <p class="fine">Passes go to the team-mate in the direction you push. Stand still too long after a dribble and the 3-second and 3-step rules start counting – watch the dots above your player.</p>
+        <ul class="ctl">
+          <li><b>Move</b> left arrows / WASD</li>
+          <li><b>Pass</b> PASS / J</li>
+          <li><b>Shoot</b> hold SHOOT, let go / K</li>
+          <li><b>Steal</b> STEAL / K</li>
+          <li><b>Switch player</b> SWITCH / J</li>
+        </ul>
+      </article>
+      <article>
+        <h3>The rules</h3>
+        <ul class="rl">
+          <li><b>Orange zone:</b> keepers only. Jump in to shoot.</li>
+          <li><b>3 steps, 3 seconds</b> with the ball. Bounce it to keep running.</li>
+          <li><b>Steal from the front.</b> From behind is a foul.</li>
+          <li><b>Foul</b> = free throw. Big chance fouled = <b>7-metre shot</b>.</li>
+          <li><b>Cards:</b> yellow, then 2 minutes off, then red.</li>
+          <li><b>No stalling:</b> after the warning, 4 passes then shoot.</li>
+        </ul>
       </article>
     </div>
   </div>

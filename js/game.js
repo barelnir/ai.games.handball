@@ -6,6 +6,7 @@ import {
   clamp, lerp, goalDist, pushOut, dPoint, dParam, distToSegment,
 } from './court.js';
 import { PowerSystem } from './powers.js';
+import { SQUADS } from './toon.js';
 
 const G = 9.8;
 const ROLES = ['GK', 'LW', 'LB', 'CB', 'RB', 'RW', 'PV'];
@@ -22,38 +23,32 @@ export const DIFFICULTY = {
   hard:   { speed: 1.03, steal: 0.95, gk: 0.52, react: 0.12, aim: 0.80, think: 0.13, intercept: 0.52 },
 };
 
-export const KITS = [
-  { name: 'Hornets', abbr: 'HOR', shirt: '#ffd23f', trim: '#1b2a4a', shorts: '#1b2a4a', gk: '#35c46f', gkTrim: '#0e3b22' },
-  { name: 'Vipers', abbr: 'VIP', shirt: '#e8453c', trim: '#fff4ec', shorts: '#fff4ec', gk: '#8b5cf6', gkTrim: '#24124f' },
-];
+export const KITS = SQUADS.map((sq) => ({ name: sq.name, abbr: sq.name.slice(0, 3).toUpperCase(), ...sq.kit }));
 
-const SKIN = ['#f1c7a5', '#e0ac85', '#c68b62', '#a36a45', '#7a4b2f', '#5b3622'];
-const HAIR = ['#20150f', '#3d2618', '#6b4425', '#b07a3b', '#e0c27a', '#8c2f1c', '#111111'];
+// Overall pace. Lower = calmer game (player speed, passes and shots all scale with it).
+const PACE = 0.72;
+
 
 const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
 const hyp = Math.hypot;
 
 const VIOLATIONS = {
-  steps: ['Steps', 'More than 3 steps holding the ball without dribbling.'],
-  three: ['3 seconds', 'The ball was held for longer than 3 seconds.'],
-  passive: ['Passive play', 'No shot after the warning and 4 passes.'],
+  steps: 'Too many steps',
+  three: 'Held too long',
+  passive: 'Passive play',
 };
 
 function makePlayer(team, role, i) {
   return {
     id: team * 10 + i, team, role, gk: role === 'GK', num: NUMBERS[team][i],
+    hero: SQUADS[team].heroes.find((h) => h.role === role),
     x: 0, y: 0, vx: 0, vy: 0, z: 0, vz: 0, air: false, landT: 9,
     face: team === 0 ? 0 : Math.PI, phase: Math.random() * 6,
     carry: null, holdT: 0, stepDist: 0, stillT: 0, ballT: 0, slowT: 0, charge: 0, charging: false,
     action: null, actT: 0, stance: 0, stealCd: 0, diveDir: 0,
     fouls: 0, yellow: false, susp: 0, suspCount: 0, red: false, active: true,
     effects: [],
-    look: {
-      skin: SKIN[(Math.random() * SKIN.length) | 0],
-      hair: HAIR[(Math.random() * HAIR.length) | 0],
-      style: (Math.random() * 3) | 0,
-    },
     ai: { think: 0, holdLimit: 1.5, cutT: rnd(2, 6), cut: 0, delay: 0 },
   };
 }
@@ -89,12 +84,12 @@ export class Game {
     this.chaser = [null, null]; this.presser = [null, null];
     this.firstThrow = Math.random() < 0.5 ? 0 : 1;
     this.placeAll(this.firstThrow);
-    this.setPiece('throwoff', this.firstThrow, CX, CY, { sub: 'First half' });
+    this.setPiece('throwoff', this.firstThrow, CX, CY, {});
   }
 
   get full() { return this.opts.rules === 'full'; }
   emit(e) { this.events.push(e); }
-  say(title, sub = '', t = 2.2, kind = 'info') { this.msg = { title, sub, t, kind }; }
+  say(title, sub = '', t = 1.6, kind = 'info') { this.msg = { title, sub, t, kind }; }
   attackX(t) { return t.defX === 0 ? W : 0; }
   dir(t) { return t.defX === 0 ? 1 : -1; }
   diffFor(p) {
@@ -188,7 +183,7 @@ export class Game {
   updateHuman(inp, dt) {
     const c = this.controlled, b = this.ball;
     if (inp.pPress && !this.powers.activate(this.opts.human)) {
-      this.say('Special powers', 'Coming soon – the slot is ready.', 1.6, 'soft');
+      this.say('Powers soon!', '', 1.2, 'soft');
     }
     if (!c) return;
     if (b.owner === c) {
@@ -289,7 +284,7 @@ export class Game {
   }
 
   maxSpeed(p) {
-    let v = p.gk ? 5.2 : 6.2;
+    let v = (p.gk ? 5.2 : 6.2) * PACE;
     if (this.ball.owner === p) v *= 0.88;
     if (p.charging) v *= 0.7;
     if (p.slowT > 0) v *= 0.5;
@@ -301,7 +296,7 @@ export class Game {
     if (p.air) return;
     const max = this.maxSpeed(p) * boost;
     const dvx = wx * max - p.vx, dvy = wy * max - p.vy;
-    const dl = hyp(dvx, dvy), acc = 26 * dt * boost;
+    const dl = hyp(dvx, dvy), acc = 20 * dt * boost;
     const k = dl > acc ? acc / dl : 1;
     p.vx += dvx * k; p.vy += dvy * k;
   }
@@ -524,7 +519,7 @@ export class Game {
     if (ai.think > 0) return;
     ai.think = d.think * rnd(0.7, 1.3);
     const q = this.shotQuality(p);
-    let th = 0.5;
+    let th = 0.42;
     if (this.passive) th -= this.passivePasses * 0.08;
     if (p.holdT > 2.2) th -= 0.2;
     if (q > th + rnd(-0.1, 0.1)) { this.shoot(p, null, rnd(0.45, 0.95)); return; }
@@ -544,7 +539,7 @@ export class Game {
     const d = hyp(c.x - p.x, c.y - p.y);
     if (d > 1.15) return;
     const front = (Math.cos(c.face) * (p.x - c.x) + Math.sin(c.face) * (p.y - c.y)) / (d || 1);
-    const rate = this.diffFor(p).steal * (front < -0.3 ? 0.25 : 1);
+    const rate = this.diffFor(p).steal * 0.7 * (front < -0.3 ? 0.25 : 1);
     if (Math.random() < rate * dt) this.tackle(p);
   }
 
@@ -626,7 +621,7 @@ export class Game {
     }
     let tx = m.x, ty = m.y;
     let d = hyp(tx - p.x, ty - p.y);
-    const speed = clamp(10 + d * 0.35, 11, 18);
+    const speed = clamp(10 + d * 0.35, 11, 18) * PACE;
     const T0 = d / speed;
     tx += m.vx * T0 * 0.8; ty += m.vy * T0 * 0.8;
     for (const gx of [0, W]) if (!m.gk) { const q = pushOut(tx, ty, gx, 6.2); tx = q.x; ty = q.y; }
@@ -636,7 +631,7 @@ export class Game {
     this.releaseFrom(p);
     b.state = 'pass'; b.passTo = m; b.tx = tx; b.ty = ty;
     b.passerOf = { [m.id]: p };
-    b.x = p.x; b.y = p.y; b.z = p.z + 1.4;
+    b.x = p.x; b.y = p.y; b.z = p.z + 0.9;
     d = hyp(tx - b.x, ty - b.y);
     const T = Math.max(0.12, d / speed);
     b.vx = Math.cos(ang) * speed; b.vy = Math.sin(ang) * speed;
@@ -660,13 +655,13 @@ export class Game {
     const aim = this.diffFor(p).aim * this.powers.mod(p, 'shotError');
     const err = (0.12 + 0.03 * d + pressure * 0.25 + power * 0.22) * aim;
     ty += gauss() * err; tz += gauss() * err * 0.6;
-    const speed = (15.5 + power * 9) * this.powers.mod(p, 'shotSpeed');
+    const speed = (15.5 + power * 9) * PACE * this.powers.mod(p, 'shotSpeed');
     if (!p.gk && !p.air) { p.air = true; p.vz = 3.4; p.z = 0.02; p.vx += s * 1.8; }
     p.action = 'shoot'; p.actT = 0;
     this.releaseFrom(p);
     b.state = 'shot'; b.shooter = p; b.goalX = ax; b.checkedGK = false;
     b.shotDist = goalDist(p.x, p.y, ax);
-    b.x = p.x + s * 0.2; b.y = p.y; b.z = p.z + 1.9;
+    b.x = p.x + s * 0.2; b.y = p.y; b.z = p.z + 1.4;
     const dx = ax - b.x, dy = ty - b.y, dist = hyp(dx, dy), T = dist / speed;
     b.vx = (dx / dist) * speed; b.vy = (dy / dist) * speed;
     b.vz = (tz - b.z + 0.5 * G * T * T) / T;
@@ -725,18 +720,17 @@ export class Game {
         distToSegment(o.x, o.y, att.x, att.y, ax, CY).d < 1.0 && goalDist(o.x, o.y, ax) < gd);
       clear = facing && !blocked;
     }
-    const cardText = card === 'yellow' ? ` Yellow card for #${def.num}.`
-      : card === '2min' ? ` #${def.num} is suspended for 2 minutes.`
-      : card === 'red' ? ` Third suspension: red card for #${def.num}.` : '';
+    const cardTitle = { yellow: 'Yellow card', '2min': '2 minutes off', red: 'Red card' }[card];
+    const cardSub = card ? `${def.hero.name} · ` : '';
     if (clear) {
       this.setPiece('penalty', att.team, ax - s * PEN_D, CY, {
-        sub: `Foul on a clear scoring chance.${cardText}`, signal: card || 'penalty',
+        title: cardTitle || '7-metre throw!', sub: `${cardSub}penalty ${at.kit.name}`, signal: card || 'penalty',
       });
     } else {
       let q = { x: clamp(att.x, 0.5, W - 0.5), y: clamp(att.y, 0.2, H - 0.2) };
       if (goalDist(q.x, q.y, ax) < 9) q = pushOut(q.x, q.y, ax, 9.05);
       this.setPiece('freethrow', att.team, q.x, q.y, {
-        sub: `${severe ? 'Foul from behind.' : 'Foul.'}${cardText}`, signal: card || 'free',
+        title: cardTitle || (severe ? 'Foul from behind' : 'Foul'), sub: `${cardSub}free throw ${at.kit.name}`, signal: card || 'free',
       });
     }
   }
@@ -761,7 +755,7 @@ export class Game {
         p.x = t.defX === 0 ? CX - 4.5 : CX + 4.5; p.y = H - 0.3;
         if (p.red) {
           p.red = false; p.suspCount = 0; p.yellow = false; p.num += 20;
-          this.say(`${t.kit.name} back to full strength`, `Substitute #${p.num} replaces the disqualified player.`, 2);
+          this.say(`${t.kit.name} back to 7`, '', 1.4, 'soft');
         }
       }
     }
@@ -776,12 +770,12 @@ export class Game {
 
   violation(kind, p) {
     const other = 1 - p.team;
-    const [title, why] = VIOLATIONS[kind];
+    const title = VIOLATIONS[kind];
     this.emit({ type: 'whistle', n: 1 });
     const ax = this.attackX(this.teams[other]);
     let q = { x: clamp(p.x, 0.5, W - 0.5), y: clamp(p.y, 0.2, H - 0.2) };
     if (goalDist(q.x, q.y, ax) < 9) q = pushOut(q.x, q.y, ax, 9.05);
-    this.setPiece('freethrow', other, q.x, q.y, { title, sub: why, signal: kind });
+    this.setPiece('freethrow', other, q.x, q.y, { title, sub: `free throw ${this.teams[other].kit.name}`, signal: kind });
   }
 
   setPiece(type, teamIdx, x, y, o = {}) {
@@ -803,10 +797,9 @@ export class Game {
     taker.carry = 'fresh';
     taker.ai.delay = rnd(0.3, 0.9);
     this.lock = { p: taker, penalty: type === 'penalty' };
-    const names = { throwoff: 'Throw-off', freethrow: 'Free throw', throwin: 'Throw-in', penalty: '7-metre throw' };
+    const names = { throwoff: 'Throw-off', freethrow: 'Free throw', throwin: 'Throw-in', penalty: '7-metre throw!' };
     const title = o.title || names[type];
-    const who = `${t.kit.name}`;
-    this.say(title, o.sub ? `${o.sub} ${o.title ? `Free throw to ${who}.` : ''}`.trim() : `${who} ball.`, type === 'penalty' ? 2.6 : 2, o.title ? 'rule' : 'info');
+    this.say(title, o.sub || `${t.kit.name} ball`, type === 'penalty' ? 2 : 1.5, o.title ? 'rule' : 'info');
     if (o.signal) this.signal = { type: o.signal, t: 2 };
     this.emit({ type: 'setpiece', kind: type, team: teamIdx });
   }
@@ -816,9 +809,10 @@ export class Game {
     const b = this.ball;
     if (b.owner) {
       const p = b.owner, fx = Math.cos(p.face) >= 0 ? 1 : -1;
-      b.x = p.x + fx * 0.24; b.y = p.y + 0.02;
-      if (p.carry === 'drib') { b.bounce += dt * 8.5; b.z = 0.12 + Math.abs(Math.sin(b.bounce)) * 0.95; }
-      else b.z = p.z + (p.charging ? 1.9 : 1.25);
+      b.y = p.y + 0.02;
+      if (p.charging) { b.x = p.x - fx * 0.44; b.z = p.z + 1.37; }
+      else if (p.carry === 'drib') { b.x = p.x + fx * 0.27; b.bounce += dt * 7; b.z = 0.19 + Math.abs(Math.sin(b.bounce)) * 0.3; }
+      else { b.x = p.x + fx * 0.29; b.z = p.z + 0.64; }
       return;
     }
     if (b.state === 'dead') return;
@@ -891,14 +885,14 @@ export class Game {
       const reach = (0.5 + (gk.action === 'dive' ? 0.55 : 0.2)) * this.powers.mod(gk, 'gkReach');
       if (dy < reach && b.z < 2.25) {
         const sp = hyp(b.vx, b.vy);
-        const pr = clamp(this.diffFor(gk).gk + 0.3 * (1 - dy / reach) - (sp - 18) / 35 + (b.shotDist - 7) * 0.03, 0.08, 0.92);
+        const pr = clamp(this.diffFor(gk).gk + 0.3 * (1 - dy / reach) - (sp / PACE - 18) / 35 + (b.shotDist - 7) * 0.03, 0.08, 0.92);
         if (Math.random() < pr) {
           def.stats.saves++;
           this.powers.gain(def, 'save');
           this.emit({ type: 'save', team: def.idx });
-          if (sp < 19 && Math.random() < 0.45) {
+          if (sp < 19 * PACE && Math.random() < 0.45) {
             this.setOwner(gk);
-            this.say('Save!', `${def.kit.name} keeper holds it.`, 1.2, 'soft');
+            this.say('Save!', gk.hero.name, 1.2, 'soft');
           } else {
             b.vx = s * rnd(2, 5); b.vy = rnd(-5, 5); b.vz = rnd(1, 3);
             b.state = 'loose'; b.last = gk; b.lastTeam = gk.team;
@@ -943,7 +937,7 @@ export class Game {
     t.score++; t.stats.goals++;
     this.powers.gain(t, 'goal');
     const scorer = b.state === 'shot' && b.shooter && b.shooter.team === t.idx ? b.shooter : b.last && b.last.team === t.idx ? b.last : null;
-    this.say('GOAL!', scorer ? `#${scorer.num} scores for ${t.kit.name}` : `${t.kit.name} score`, 2.2, 'goal');
+    this.say('GOAL!', scorer ? scorer.hero.name : t.kit.name, 2.2, 'goal');
     this.signal = { type: 'goal', t: 1.6 };
     this.emit({ type: 'goal', team: t.idx });
     this.emit({ type: 'whistle', n: 1 });
@@ -959,14 +953,14 @@ export class Game {
       const def = this.teams.find((t) => t.defX === x);
       if (b.last && b.last.team === def.idx && !b.last.gk) {
         this.emit({ type: 'whistle', n: 1 });
-        this.setPiece('throwin', 1 - def.idx, x === 0 ? 0.3 : W - 0.3, y < CY ? 0 : H, { sub: 'Last touched by a defender: corner throw-in.' });
+        this.setPiece('throwin', 1 - def.idx, x === 0 ? 0.3 : W - 0.3, y < CY ? 0 : H, { title: 'Corner throw' });
       } else {
         const gk = this.keeper(def);
         if (!gk) { this.setPiece('throwin', def.idx, x === 0 ? 0.3 : W - 0.3, y < CY ? 0 : H); return; }
         b.state = 'held';
         this.lock = null;
         this.setOwner(gk);
-        this.say('Goalkeeper throw', `${def.kit.name} ball.`, 1.4, 'info');
+        this.say('Keeper ball', '', 1, 'soft');
       }
     } else {
       this.emit({ type: 'whistle', n: 1 });
@@ -1004,7 +998,7 @@ export class Game {
     if (this.full && !this.passive && this.attackT > this.passiveTime) {
       this.passive = true; this.passivePasses = 0;
       this.signal = { type: 'passive', t: 3 };
-      this.say('Passive play warning', `${this.teams[this.poss].kit.name}: at most 4 more passes, then shoot.`, 2.4, 'rule');
+      this.say('Passive play!', '4 passes, then shoot', 2, 'rule');
       this.emit({ type: 'warn' });
     }
   }
@@ -1027,7 +1021,7 @@ export class Game {
     const first = 1 - this.firstThrow;
     this.poss = first;
     this.placeAll(first);
-    this.setPiece('throwoff', first, CX, CY, { sub: 'Second half – teams have switched ends.' });
+    this.setPiece('throwoff', first, CX, CY, { title: 'Second half', sub: 'Teams switch ends' });
   }
 
   updateRefs(dt) {
