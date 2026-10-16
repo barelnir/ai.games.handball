@@ -140,7 +140,9 @@ function bindUI() {
       }
     } catch {}
   });
-  addEventListener('pointerdown', () => sound.unlock(), { once: false, passive: true });
+  for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) {
+    addEventListener(ev, () => sound.unlock(), { passive: true, capture: true });
+  }
 }
 
 function togglePause() {
@@ -355,5 +357,8 @@ function showBreak() {
   $('#brNext').textContent = half ? 'Start second half' : 'Play again';
   setMode('break');
 }
+
+// Read-only handle for automated tests (tests/e2e.mjs).
+window.handball = { get game() { return game; }, get mode() { return mode; } };
 
 boot();

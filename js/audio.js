@@ -22,21 +22,43 @@ const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
 export class Sound {
   constructor() { this.ctx = null; this.muted = false; this.musicOn = true; this.timer = null; }
 
+  // Must be called from inside a tap/click/key handler (browsers only allow audio after one).
   unlock() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    // iPhone: play through the silent switch, like a game or video would.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+    if (this.ctx) {
+      if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+      this.blip();
+      return;
+    }
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       this.ctx = new AC();
+      // master volume -> limiter -> speakers, so music and effects are loud but never distort
+      const lim = this.ctx.createDynamicsCompressor();
+      lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12;
+      lim.attack.value = 0.003; lim.release.value = 0.2;
+      lim.connect(this.ctx.destination);
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.5;
-      this.master.connect(this.ctx.destination);
+      this.master.gain.value = 1.6;
+      this.master.connect(lim);
+      this.blip();
+      if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
       const len = this.ctx.sampleRate * 2;
       this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const d = this.noise.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     } catch { this.ctx = null; }
     if (this.musicOn) this.startMusic();
+  }
+
+  // Older iPhones only start audio after a sound is played inside the tap itself.
+  blip() {
+    try {
+      const c = this.ctx, b = c.createBuffer(1, 1, c.sampleRate), s = c.createBufferSource();
+      s.buffer = b; s.connect(c.destination); s.start(0);
+    } catch {}
   }
 
   // ---------------------------------------------------------------- music
@@ -50,7 +72,7 @@ export class Sound {
     const c = this.ctx;
     this.mus = c.createGain();
     this.mus.gain.value = 0.0001;
-    this.mus.gain.exponentialRampToValueAtTime(0.32, c.currentTime + 1.2);
+    this.mus.gain.exponentialRampToValueAtTime(0.85, c.currentTime + 0.8);
     this.mus.connect(this.master);
     this.step = 0;
     this.loop = 0;
