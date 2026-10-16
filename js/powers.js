@@ -1,5 +1,5 @@
-// Special powers. The human team's custom hero (see heroes.js) has one power, set by the chosen
-// template (Lightning, Fire, Muscle, Captain). The template's `fx` says what the power does;
+// Special powers. Each team has one power hero (yours: from a photo; the computer's: Venom) with a
+// power template (Lightning, Fire, Muscle, Captain). The template's `fx` says what the power does;
 // the game asks mod() for multipliers wherever a power can matter (speed, shotSpeed, shotError,
 // catchRadius, stealResist, gkReach), and reads fx for the shot itself (unblockable, freezeKeeper,
 // keeperSave).
@@ -11,22 +11,24 @@ export const POWERS_ENABLED = true;
 export const ENERGY_MAX = 100;
 const COST = 100;
 const DURATION = 10;
-const GAIN = { second: 1.2, goal: 18, save: 14, steal: 12 };
+const GAIN = { second: 3.5, goal: 25, save: 20, steal: 15 }; // yours: full again in under 30 s
+const RIVAL_GAIN = 0.35; // the computer's meter fills about 3x slower, so it doesn't spam powers
 
 export class PowerSystem {
   constructor(game) {
     this.game = game;
     this.enabled = POWERS_ENABLED;
-    this.template = null;
-    this.heroName = '';
+    this.teams = [null, null]; // per team: { template, profile, hero (player) }
   }
 
-  configure(template, heroName) {
-    this.template = template;
-    this.heroName = heroName;
+  configure(teamIdx, template, profile, hero) {
+    this.teams[teamIdx] = { template, profile, hero };
   }
 
-  get fx() { return (this.template && this.template.fx) || {}; }
+  fxFor(teamIdx) {
+    const t = this.teams[teamIdx];
+    return (t && t.template.fx) || {};
+  }
 
   // Product of all active effects on this player for a modifier key (1 when none).
   mod(player, key) {
@@ -36,13 +38,15 @@ export class PowerSystem {
     return m;
   }
 
+  rate(team) { return team.idx === this.game.opts.human ? 1 : RIVAL_GAIN; }
+
   gain(team, what) {
-    team.energy = Math.min(ENERGY_MAX, team.energy + (GAIN[what] || 0));
+    team.energy = Math.min(ENERGY_MAX, team.energy + (GAIN[what] || 0) * this.rate(team));
   }
 
   update(dt) {
     for (const t of this.game.teams) {
-      t.energy = Math.min(ENERGY_MAX, t.energy + GAIN.second * dt);
+      t.energy = Math.min(ENERGY_MAX, t.energy + GAIN.second * this.rate(t) * dt);
       for (const p of t.players) {
         if (!p.effects.length) continue;
         for (const e of p.effects) e.t -= dt;
@@ -51,15 +55,15 @@ export class PowerSystem {
     }
   }
 
-  // Called when the player presses POWER. Returns true, or the reason it can't fire yet:
+  // Called when POWER is pressed (or the computer decides). Returns true, or why it can't fire yet:
   // 'energy' (meter not full), 'ball' (team doesn't have the ball), 'missing' (hero not on court).
   activate(teamIdx) {
-    if (!this.enabled || !this.template) return 'off';
-    const g = this.game, team = g.teams[teamIdx], b = g.ball;
+    const info = this.teams[teamIdx];
+    if (!this.enabled || !info) return 'off';
+    const g = this.game, team = g.teams[teamIdx], b = g.ball, hero = info.hero;
     if (g.pendingPower || b.power) return true;
     if (team.energy < COST) return 'energy';
-    const hero = team.players.find((p) => p.active && p.hero && p.hero.custom);
-    if (!hero) return 'missing';
+    if (!hero.active) return 'missing';
     if (b.owner === hero) { this.start(hero); return true; }
     if (b.owner && b.owner.team === teamIdx && g.state === 'play') {
       g.pass(b.owner, hero);            // the carrier passes to the hero; the power starts on the catch
@@ -70,7 +74,7 @@ export class PowerSystem {
   }
 
   start(hero) {
-    const g = this.game, tp = this.template, fx = this.fx, team = g.teams[hero.team];
+    const g = this.game, info = this.teams[hero.team], tp = info.template, fx = tp.fx, team = g.teams[hero.team];
     team.energy = Math.max(0, team.energy - COST);
     hero.effects = hero.effects.filter((e) => e.id !== 'power');
     hero.effects.push({ id: 'power', t: DURATION, mods: { shotSpeed: fx.speed || 1, shotError: fx.aim || 1 } });
@@ -83,9 +87,11 @@ export class PowerSystem {
     }
     g.pendingPower = null;
     g.ball.power = tp.ball;
+    g.ball.powerTeam = hero.team;
     g.powerT = DURATION;
     g.splash = 1.8;
-    g.say(tp.title(this.heroName), tp.sub, 1.9, 'power');
+    g.splashInfo = info;
+    g.say(tp.title(info.profile.nameHe), tp.sub, 1.9, 'power');
     g.emit({ type: 'power', kind: tp.key, team: hero.team });
   }
 }

@@ -58,10 +58,20 @@ function blockPageZoom() {
   const stop = (e) => e.preventDefault();
   for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) document.addEventListener(ev, stop, { passive: false });
   document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  // If the page got zoomed anyway (iPhone double-tap), snap it back to normal size.
+  const meta = document.querySelector('meta[name=viewport]');
+  const base = meta && meta.content;
+  const unzoom = () => {
+    if (!meta || !window.visualViewport || visualViewport.scale <= 1.01) return;
+    meta.content = base + ', minimum-scale=1';
+    setTimeout(() => { meta.content = base; }, 300);
+    window.scrollTo(0, 0);
+  };
+  if (window.visualViewport) { visualViewport.addEventListener('resize', unzoom); visualViewport.addEventListener('scroll', unzoom); }
   let lastTap = 0;
   document.addEventListener('touchend', (e) => {
     const now = Date.now();
-    if (now - lastTap < 300 && !e.target.closest('button, .seg')) e.preventDefault();
+    if (now - lastTap < 350 && !e.target.closest('.seg, #menu button, .screen button')) e.preventDefault();
     lastTap = now;
   }, { passive: false });
 }
@@ -307,7 +317,7 @@ function render() {
     if (e.p) {
       const p = e.p;
       if (p.frozen > 0) T.drawPowerAura(R, p, now, '#7fe7ff');
-      else if (p.effects.length && g.template) T.drawPowerAura(R, p, now, g.template.aura);
+      else if (p.effects.length && g.powers.teams[p.team]) T.drawPowerAura(R, p, now, g.powers.teams[p.team].template.aura);
       T.drawHero(R, p.hero, g.teams[p.team].kit, p, {
         t: now,
         hasBall: b.owner === p,
@@ -335,7 +345,8 @@ function renderSplash(left) {
   const c = R.canvas, total = 1.8, k = total - left;
   const zoom = Math.min(1, 0.55 + k * 2.2);           // quick zoom-in
   R.begin(0, -0.75, (c.height / 5.4) * zoom, T.TP.clear);
-  drawPortrait(R, game.profile, game.template, now, Math.min(1, k / 0.25));
+  const info = game.splashInfo;
+  drawPortrait(R, info.profile, info.template, now, Math.min(1, k / 0.25));
   R.end();
 }
 

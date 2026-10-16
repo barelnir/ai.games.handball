@@ -20,6 +20,7 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
+canvas, #hud, #touch, #touch * { touch-action: none; }
 html { touch-action: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 button { touch-action: manipulation; }
 /* the court, scoreboard and controls keep their left/right places in Hebrew */

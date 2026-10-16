@@ -14,6 +14,13 @@ export const PROFILES = [
 ];
 export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES[0];
 
+// The computer team's power hero (Venom, the Vipers' centre back). Not in the picker.
+export const RIVAL = {
+  id: 'venom', name: 'Venom', nameHe: 'ארס',
+  skin: '#e0ac85', skinShade: '#c98f6a', hair: '#3a1838', hairHi: '#6b3a66', brow: '#2a1028',
+  iris: '#3fbf4a', glasses: null, style: 'short',
+};
+
 // fx: what the power does.
 //   speed      shot speed multiplier          aim        shot error multiplier (lower = more accurate)
 //   unblockable  defenders can't block         freezeKeeper  keeper frozen for N seconds (no save)

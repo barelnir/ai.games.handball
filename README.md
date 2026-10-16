@@ -66,7 +66,7 @@ On the menu, **Your hero** picks the player and a **power template**. A hero is 
 | Muscle | yellow ball with shock-wave rings, speed lines | shot twice as fast |
 | Captain | white ball with stars circling it | the whole team runs 30% faster for 8 s |
 
-How it plays: the POWER button fills up over time and with goals, saves and steals, and glows **READY** when full.
+How it plays: the POWER button starts full, refills in under 30 seconds (faster with goals, saves and steals), and glows **READY** when full. The computer's team has a power too: their centre back **Venom** gets a random template each match. The computer fires it when attacking near your goal, and its meter fills about 3x slower than yours.
 1. Press POWER. If a team-mate has the ball, they pass it to your hero.
 2. The match freezes for a full-screen close-up: big head, glasses, flexing muscles, in the template's costume.
 3. For 10 seconds the ball is powered. A powered shot uses the template's effect.

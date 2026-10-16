@@ -11,7 +11,7 @@ for (const tp of TEMPLATE_LIST) {
   // the pass to the hero can be intercepted (fair play), so keep going until 6 powers have fired
   for (let run = 0; run < 60 && tries < 6; run++) {
     runs++;
-    const g = new Game({ halfLen: 600, human: 0, difficulty: 'hard', power: tp.key });
+    const g = new Game({ halfLen: 600, human: 0, difficulty: 'hard', power: tp.key, rivalPowers: false });
     const inp = { mx: 0, my: 0 }; g.input = inp;
     const hero = g.teams[0].players.find((p) => p.hero.custom);
     let n = 0;
@@ -46,5 +46,21 @@ for (const tp of TEMPLATE_LIST) {
   check(tries >= 6, `${tp.label}: power fires once the hero gets the ball`, `${tries} in ${runs} tries`);
   const need = tp.fx.freezeKeeper || tp.fx.unblockable ? 0.5 : tp.fx.keeperSave ? 0.34 : 0;
   check(goals >= tries * need, `${tp.label}: powered shots score`, `${goals}/${tries} vs hard keeper`);
+}
+
+// the computer uses its own power too
+{
+  let fired = 0;
+  for (let run = 0; run < 3 && !fired; run++) {
+    const g = new Game({ halfLen: 300, human: 0, rivalPower: 'fire' });
+    g.input = { mx: 0, my: 0 };
+    g.teams[0].players.forEach((p) => { if (!p.gk) p.active = false; }); // empty court: the Vipers attack freely
+    for (let i = 0; i < 60 * 90 && !fired; i++) {
+      g.step(1 / 60);
+      for (const e of g.events) if (e.type === 'power' && e.team === 1) fired++;
+      g.events.length = 0;
+    }
+  }
+  check(fired > 0, 'the computer fires its own power when it attacks');
 }
 process.exit(fails ? 1 : 0);

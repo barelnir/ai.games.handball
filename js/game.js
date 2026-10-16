@@ -7,7 +7,7 @@ import {
 } from './court.js';
 import { PowerSystem } from './powers.js';
 import { SQUADS } from './toon.js';
-import { TEMPLATES, profileById, heroFromProfile } from './heroes.js';
+import { TEMPLATES, TEMPLATE_LIST, RIVAL, profileById, heroFromProfile } from './heroes.js';
 
 const G = 9.8;
 const ROLES = ['GK', 'LW', 'LB', 'CB', 'RB', 'RW', 'PV'];
@@ -64,19 +64,29 @@ export class Game {
     this.input = {};
     this.powers = new PowerSystem(this);
     this.teams = [0, 1].map((i) => ({
-      idx: i, kit: KITS[i], score: 0, defX: i === 0 ? 0 : W, energy: 60,
+      idx: i, kit: KITS[i], score: 0, defX: i === 0 ? 0 : W, energy: 100,
       players: ROLES.map((r, j) => makePlayer(i, r, j)),
       stats: { shots: 0, goals: 0, saves: 0, steals: 0, fouls: 0, turnovers: 0, suspensions: 0 },
     }));
     this.all = [...this.teams[0].players, ...this.teams[1].players];
     // the player's own hero (from a photo) plays centre back, with the chosen power template
     const h = this.opts.human;
-    if (h >= 0) {
-      this.profile = profileById(this.opts.hero);
-      this.template = TEMPLATES[this.opts.power] || TEMPLATES.lightning;
-      const cb = this.teams[h].players.find((p) => p.role === 'CB');
-      cb.hero = heroFromProfile(this.profile, this.template);
-      this.powers.configure(this.template, this.profile.nameHe);
+    const pick = () => TEMPLATE_LIST[(Math.random() * TEMPLATE_LIST.length) | 0];
+    for (const t of this.teams) {
+      const cb = t.players.find((p) => p.role === 'CB');
+      if (t.idx === h) {
+        this.profile = profileById(this.opts.hero);
+        this.template = TEMPLATES[this.opts.power] || TEMPLATES.lightning;
+        cb.hero = heroFromProfile(this.profile, this.template);
+        this.powers.configure(t.idx, this.template, this.profile, cb);
+      } else {
+        // the computer's hero gets a random power each match (Venom keeps his look)
+        let tp = TEMPLATES[this.opts.rivalPower] || pick();
+        // the rival's close-up costume never wears the Hornets' yellow
+        if (tp.shirt === '#ffd23f') tp = { ...tp, shirt: '#e8453c', trim: '#fff4ec', bg: ['#b3261e', '#ff7a6b'], aura: '#ffd0c8' };
+        cb.hero = { ...cb.hero, custom: true };
+        this.powers.configure(t.idx, tp, t.idx === 1 ? RIVAL : profileById(), cb);
+      }
     }
     this.ball = {
       x: CX, y: CY, z: 0, vx: 0, vy: 0, vz: 0, owner: null, state: 'dead', passTo: null, tx: 0, ty: 0,
@@ -158,7 +168,7 @@ export class Game {
     if (this.state === 'play') this.updateHuman(inp, dt);
     this.updatePlayers(dt, inp);
     this.updateBall(dt);
-    if (this.state === 'play') this.updateRules(dt);
+    if (this.state === 'play') { this.updateRules(dt); this.aiPowers(dt); }
     this.updateRefs(dt);
     this.clearEdges();
   }
@@ -516,9 +526,25 @@ export class Game {
     return forced || bs > -0.5 ? best : null;
   }
 
+  // Computer teams fire their power when they have the ball near the opponents' goal.
+  aiPowers(dt) {
+    const b = this.ball, c = b.owner;
+    if (this.opts.rivalPowers === false) return;
+    if (!c || c.gk || b.power || this.pendingPower || c.team === this.opts.human) return;
+    const t = this.teams[c.team];
+    if (t.energy < 100 || goalDist(c.x, c.y, this.attackX(t)) > 15) return;
+    if (Math.random() < dt * 0.8) this.powers.activate(c.team);
+  }
+
   aiCarrier(p, dt) {
     if (this.state !== 'play') return;
     const ai = p.ai, d = this.diffFor(p);
+    // a computer hero holding its powered ball goes for goal
+    if (this.ball.power && this.ball.powerTeam === p.team && p.hero.custom && !(this.lock && this.lock.p === p)) {
+      const gd = goalDist(p.x, p.y, this.attackX(this.teamOf(p)));
+      if (gd < 10 || p.ballT > 2.4 || (p.carry !== 'drib' && p.holdT > 1.5)) this.shoot(p, null, rnd(0.7, 1));
+      return;
+    }
     if (this.lock && this.lock.p === p) {
       ai.delay -= dt;
       if (ai.delay > 0) return;
@@ -692,7 +718,7 @@ export class Game {
     t.stats.shots++;
     this.passive = false; this.passivePasses = 0; this.attackT = 0;
     if (b.power) {
-      const fx = this.powers.fx;
+      const fx = this.powers.fxFor(b.powerTeam);
       b.powerShot = true;
       if (gk && fx.freezeKeeper) gk.frozen = fx.freezeKeeper;
       p.effects = p.effects.filter((e) => e.id !== 'power');
@@ -895,7 +921,7 @@ export class Game {
   shotContacts(px, py) {
     const b = this.ball, gx = b.goalX, s = gx === 0 ? 1 : -1;
     const def = this.teams.find((t) => t.defX === gx);
-    const fx = b.power ? this.powers.fx : {};
+    const fx = b.power ? this.powers.fxFor(b.powerTeam) : {};
     if (fx.freezeKeeper) return false; // keeper frozen and blocks don't stop it
     for (const o of def.players) {
       if (fx.unblockable) break;
