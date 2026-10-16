@@ -471,8 +471,10 @@ function updateHUD() {
   const e = Math.round((g.teams[h].energy / ENERGY_MAX) * 100);
   $('#btnP').style.setProperty('--e', e);
   const ready = POWERS_ENABLED && e >= 100;
-  $('#btnP').classList.toggle('ready', ready);
-  $('#btnP').querySelector('small').textContent = !POWERS_ENABLED ? 'בקרוב' : ready ? 'מוכן!' : `${e}%`;
+  const armed = !!(g.powers.teams[h] && g.powers.teams[h].armed);
+  $('#btnP').classList.toggle('ready', ready && !armed);
+  $('#btnP').classList.toggle('armed', armed);
+  $('#btnP').querySelector('small').textContent = !POWERS_ENABLED ? 'בקרוב' : armed ? 'דרוך!' : ready ? 'מוכן!' : `${e}%`;
 }
 
 function showBreak() {

@@ -73,8 +73,8 @@ export class PowerSystem {
   // The team just got the ball: fire an armed power.
   onCatch(p) {
     const info = this.teams[p.team];
+    // stays armed while the rivals pass the ball around, until your team gets it
     if (info && info.armed && !this.game.ball.power) this.start(p);
-    for (const t of this.teams) if (t && t !== info) t.armed = false; // the other side lost its chance
   }
 
   start(carrier) {

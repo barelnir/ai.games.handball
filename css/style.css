@@ -198,6 +198,8 @@ body:not(.touch) #stick { display: none; }
 .tb.power.ready { animation: ready 0.9s ease-in-out infinite; background:
     radial-gradient(circle at center, #24305e 58%, transparent 60%),
     conic-gradient(#7fe7ff 100%, #7fe7ff 0); }
+.tb.power.armed { background: radial-gradient(circle at center, #5a2a10 58%, transparent 60%), conic-gradient(#ff9f1c 100%, #ff9f1c 0); animation: ready 0.5s ease-in-out infinite; }
+.tb.power.armed small { color: #ffd23f; font-weight: 900; }
 .tb.power.ready small { color: #7fe7ff; font-weight: 900; }
 @keyframes ready { 50% { transform: scale(1.12); box-shadow: 0 0 18px #7fe7ff; } }
 .tb.power small { font: 700 11px var(--body); letter-spacing: 0; text-transform: uppercase; color: var(--muted); }

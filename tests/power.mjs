@@ -43,6 +43,9 @@ for (const tp of TEMPLATE_LIST) {
   g.setOwner(g.teams[1].players.find((p) => p.role === 'CB'));
   g.input.pPress = true; step(g);
   check(!g.ball.power && g.powers.teams[0].armed, `${tp.label}: POWER without the ball arms it`);
+  g.setOwner(g.teams[1].players.find((p) => p.role === 'LB')); // the rivals pass among themselves
+  g.setOwner(g.teams[1].players.find((p) => p.role === 'PV'));
+  check(g.powers.teams[0].armed, `${tp.label}: stays armed while the rivals pass`);
   g.setOwner(g.teams[0].players.find((p) => p.role === 'RB'));
   check(g.ball.power === tp.ball && g.splash > 0, `${tp.label}: armed power fires when we get the ball`);
 
