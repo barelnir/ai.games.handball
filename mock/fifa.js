@@ -13,18 +13,41 @@ const FONT = "'Rubik', 'Arial Hebrew', Arial, sans-serif";
 const NOW = 3.2;
 
 // ------------------------------------------------------------------ a real match moment
-function makeScene() {
-  const g = new Game({ human: 0, halfLen: 600, difficulty: 'normal', rules: 'arcade', hero: 'eitan', power: 'lightning', rivalHero: 'eyal', rivalPower: 'ice' });
+// cfg: { hero, power, rival, rivalPower, moment: 'run' | 'shot' | 'ice' | 'defend' }
+function makeScene(cfg = {}) {
+  const c = { hero: 'eitan', power: 'lightning', rival: 'eyal', rivalPower: 'ice', moment: 'run', ...cfg };
+  const g = new Game({ human: 0, halfLen: 600, difficulty: 'normal', rules: 'arcade', hero: c.hero, power: c.power, rivalHero: c.rival, rivalPower: c.rivalPower, rivalPowers: false });
   g.opts.human = -1; // let the computer play both sides
-  const eitan = g.teams[0].players.find((p) => p.role === 'CB');
-  for (let i = 0; i < 60 * 240; i++) {
-    g.step(1 / 60); g.events.length = 0;
+  g.powers.enabled = false;
+  const me = g.teams[0].players.find((p) => p.role === 'CB');
+  const step = (n) => { for (let i = 0; i < n; i++) { g.step(1 / 60); g.events.length = 0; } };
+  const want = {
+    run: (o) => o === me && o.x > 24 && o.x < 32 && Math.hypot(o.vx, o.vy) > 1,
+    shot: (o) => o === me && o.x > 26 && o.x < 30 && Math.abs(o.y - CY) < 4,
+    ice: (o, i) => o === me && i > 240 && o.x > 18 && o.x < 30,
+    defend: (o) => o.team === 1 && o.x < 13 && o.x > 7 && Math.abs(o.y - CY) < 5,
+  }[c.moment];
+  for (let i = 0; i < 60 * 400; i++) {
+    step(1);
     const o = g.ball.owner;
     if (g.splash > 0 || g.state !== 'play' || !o) continue;
-    if (o === eitan && o.x > 24 && o.x < 32 && Math.hypot(o.vx, o.vy) > 1) break;
+    if (want(o, i)) break;
+  }
+  const trail = [];
+  g.powers.enabled = true;
+  if (c.moment === 'shot') {
+    g.powers.activate(0); g.splash = 0; g.msg = null;
+    g.shoot(me, -0.6, 1);
+    for (let i = 0; i < 16; i++) { step(1); trail.push({ x: g.ball.x, y: g.ball.y, z: g.ball.z }); if (trail.length > 26) trail.shift(); }
+  } else if (c.moment === 'ice') {
+    g.powers.activate(0); g.splash = 0; g.msg = null;
+    step(14);
   }
   g.teams[0].score = 2; g.teams[1].score = 1; g.clock = 754;
-  return { g, me: eitan };
+  // during "defend" you control the defender closest to the ball
+  let ctl = me;
+  if (c.moment === 'defend') ctl = g.teams[0].players.filter((p) => !p.gk).sort((a, b) => Math.hypot(a.x - g.ball.x, a.y - g.ball.y) - Math.hypot(b.x - g.ball.x, b.y - g.ball.y))[0];
+  return { g, me: ctl, trail, name: ctl === me ? g.powers.teams[0].profile.nameHe : ctl.hero.nameHe };
 }
 
 // ------------------------------------------------------------------ floor texture
@@ -267,13 +290,33 @@ function drawTV(canvas, scene, opt) {
   const R = createRenderer(canvas, { preferGL: false }), ctx = R.g;
   const { g, me } = scene, b = g.ball;
   const cw = canvas.width, ch = canvas.height, k = ch / 390;
-  const cam = new Cam(cw, ch, { x: Math.min(W - 8, Math.max(8, me.x + 2)), ...opt });
+  const fx = b.owner ? b.owner.x : b.x;
+  const cam = new Cam(cw, ch, { x: Math.min(W - 6, Math.max(6, (me.x + fx) / 2 + (opt.lead || 2))), ...opt });
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#0b0f22'; ctx.fillRect(0, 0, cw, ch);
   drawStands(ctx, cam);
   drawFloor(ctx, cam, scene.floorTV);
   gloss(ctx, cam);
   drawBoards(ctx, cam);
+  if (opt.night) {
+    // darker arena with a spotlight following the action
+    ctx.fillStyle = 'rgba(4,6,24,0.55)'; ctx.fillRect(0, 0, cw, ch);
+    const [lx, ly] = cam.P(me.x, me.y), r = cam.scale(me.y) * 5;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const sp = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
+    sp.addColorStop(0, 'rgba(255,245,215,0.5)'); sp.addColorStop(0.6, 'rgba(255,245,215,0.12)'); sp.addColorStop(1, 'rgba(255,245,215,0)');
+    ctx.translate(lx, ly); ctx.scale(1.4, 0.55); ctx.translate(-lx, -ly);
+    ctx.fillStyle = sp; ctx.fillRect(lx - r, ly - r, r * 2, r * 2);
+    ctx.restore();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const bx of [-0.6, 0.6]) {
+      const top = [cw / 2 + bx * cw * 0.45, -10];
+      const beam = ctx.createLinearGradient(top[0], top[1], lx, ly);
+      beam.addColorStop(0, 'rgba(255,250,230,0.16)'); beam.addColorStop(1, 'rgba(255,250,230,0.02)');
+      ctx.fillStyle = beam; ctx.beginPath(); ctx.moveTo(top[0] - 14, top[1]); ctx.lineTo(top[0] + 14, top[1]); ctx.lineTo(lx + r * 0.5, ly); ctx.lineTo(lx - r * 0.5, ly); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
   groundRing(ctx, cam, me, '#ffd23f');
   // depth order: far to near
   const ents = [];
@@ -287,16 +330,21 @@ function drawTV(canvas, scene, opt) {
     if (e.p) {
       const p = e.p;
       withAnchor(R, cam, p.x, p.y, () => {
+        if (p.effects.length && g.powers.teams[p.team]) T.drawPowerAura(R, p, NOW, g.powers.teams[p.team].template.aura);
         T.drawHero(R, p.hero, g.teams[p.team].kit, p, { t: NOW, hasBall: b.owner === p, dribbling: b.owner === p && p.carry === 'drib' });
+        if (p.frozen > 0 && p.iced) T.drawIceBlock(R, p, NOW);
         if (b.owner === p) T.drawToonBall(R, b.x, b.y, b.z, 0);
       });
     } else if (e.ref) withAnchor(R, cam, e.ref.x, e.ref.y, () => T.drawToonRef(R, e.ref, null, NOW));
-    else withAnchor(R, cam, b.x, b.y, () => T.drawToonBall(R, b.x, b.y, b.z, NOW));
+    else withAnchor(R, cam, b.x, b.y, () => {
+      if (b.power) { T.drawPowerTrail(R, b.power, scene.trail, NOW); T.drawPowerBall(R, b.power, b.x, b.y, b.z, NOW); }
+      else T.drawToonBall(R, b.x, b.y, b.z, NOW);
+    });
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   vignette(ctx, cw, ch);
   const s = cam.scale(me.y), [hx, hy] = cam.P(me.x, me.y);
-  nameTag(ctx, hx, hy - 1.75 * s, 'איתן', '#ffd23f', k, s);
+  nameTag(ctx, hx, hy - (1.5 + me.z * 0.62) * s, scene.name, '#ffd23f', k, s);
   scoreboard(ctx, g, k);
 }
 
@@ -339,7 +387,7 @@ function drawTop(canvas, scene) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   vignette(ctx, cw, ch);
   const hx = cw / 2 + (me.x - cx) * ppm, hy = ch / 2 + (me.y - me.z * 0.62 - 1.45 - cy) * ppm;
-  nameTag(ctx, hx, hy, 'איתן', '#ffd23f', k, ppm);
+  nameTag(ctx, hx, hy, scene.name, '#ffd23f', k, ppm);
   scoreboard(ctx, g, k);
 }
 
@@ -366,18 +414,34 @@ function topFloor() {
 }
 
 // ------------------------------------------------------------------ boot
+const CAM_A = { height: 22, back: 30, farY: 0.30, nearY: 0.97 };
+const CAM_B = { height: 8.5, back: 11, farY: 0.24, nearY: 1.12 };
+const CAM_B_HIGH = { height: 12, back: 15, farY: 0.26, nearY: 1.05 };
+const CAM_B_LOW = { height: 6, back: 8.5, farY: 0.2, nearY: 1.2, lead: 3 };
+// data-style -> [scene config, view]
+const VIEWS = {
+  A: [{}, { tv: CAM_A }],
+  B: [{}, { tv: CAM_B }],
+  C: [{}, { top: true }],
+  'B-shot': [{ moment: 'shot' }, { tv: CAM_B }],
+  'B-ice': [{ hero: 'eyal', power: 'ice', rival: 'eitan', rivalPower: 'fire', moment: 'ice' }, { tv: CAM_B }],
+  'B-defend': [{ hero: 'emma', power: 'fire', rival: 'eitan', rivalPower: 'lightning', moment: 'defend' }, { tv: CAM_B }],
+  'B-high': [{}, { tv: CAM_B_HIGH }],
+  'B-low': [{}, { tv: CAM_B_LOW }],
+  'B-night': [{}, { tv: { ...CAM_B, night: true } }],
+};
+
 export async function run() {
   try { await document.fonts.load(`900 20px Rubik`); await document.fonts.load(`800 20px Rubik`); } catch {}
-  const scene = makeScene();
-  scene.floorTV = floorCanvas(true);
-  scene.floorTop = topFloor();
+  const floorTV = floorCanvas(true), floorTop = topFloor(), scenes = {};
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   for (const cv of document.querySelectorAll('canvas[data-style]')) {
+    const [cfg, view] = VIEWS[cv.dataset.style];
+    const key = JSON.stringify(cfg);
+    const scene = scenes[key] || (scenes[key] = { ...makeScene(cfg), floorTV, floorTop });
     const r = cv.getBoundingClientRect();
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
-    const st = cv.dataset.style;
-    if (st === 'A') drawTV(cv, scene, { height: 22, back: 30, farY: 0.30, nearY: 0.97 });
-    else if (st === 'B') drawTV(cv, scene, { height: 8.5, back: 11, farY: 0.24, nearY: 1.12 });
+    if (view.tv) drawTV(cv, scene, view.tv);
     else drawTop(cv, scene);
   }
   document.body.dataset.ready = '1';
