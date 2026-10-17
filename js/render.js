@@ -87,6 +87,50 @@ void main() {
   o = vec4(v_col.rgb * a, a);
 }`;
 
+// Perspective floor ("TV camera"): every pixel below the horizon looks up the court texture at
+// the ground point it sees. Camera: at height u_cam.y (metres) and depth u_cam.z behind the near
+// sideline, looking straight across the court with a shifted lens (horizon at u_hor pixels).
+const FLOOR_VS = `#version 300 es
+void main() {
+  vec2 p = vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0);
+  gl_Position = vec4(p, 0.0, 1.0);
+}`;
+const FLOOR_FS = `#version 300 es
+precision highp float;
+uniform sampler2D u_tex;
+uniform vec2 u_res;
+uniform vec4 u_cam;   // x, height, yPos (camera ground y), f (pixels)
+uniform float u_hor;
+uniform vec4 u_box;   // texture covers world x0, y0 .. x1, y1
+uniform float u_minY; // nothing is drawn beyond this far line (the stands start there)
+uniform vec4 u_spot;  // night: spotlight x, y, radius, darkness (0 = day)
+uniform vec4 u_bg;
+out vec4 o;
+void main() {
+  float sy = u_res.y - gl_FragCoord.y;
+  float den = sy - u_hor;
+  if (den <= 0.5) discard;
+  float d = u_cam.w * u_cam.y / den;
+  float wy = u_cam.z - d;
+  if (wy < u_minY) discard;
+  float wx = u_cam.x + (gl_FragCoord.x - u_res.x * 0.5) * d / u_cam.w;
+  vec2 uv = (vec2(wx, wy) - u_box.xy) / (u_box.zw - u_box.xy);
+  vec3 c = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? u_bg.rgb : texture(u_tex, uv).rgb;
+  // reflections of the roof lights on the polished floor
+  float g = 0.0;
+  for (int i = 0; i < 7; i++) {
+    vec2 q = (vec2(wx, wy) - vec2(-4.0 + float(i) * 8.0, 7.0)) / vec2(2.2, 6.0);
+    g += exp(-dot(q, q));
+  }
+  c += g * 0.07 * (1.0 - u_spot.w);
+  if (u_spot.w > 0.0) {
+    vec2 q = (vec2(wx, wy) - u_spot.xy) / u_spot.z;
+    float l = exp(-dot(q, q) * 1.6);
+    c = c * mix(1.0 - u_spot.w, 1.15, l) + vec3(0.10, 0.09, 0.06) * l;
+  }
+  o = vec4(c, 1.0);
+}`;
+
 class Base {
   constructor(canvas) {
     this.canvas = canvas;
@@ -148,11 +192,41 @@ class GLRenderer extends Base {
       gl.vertexAttribDivisor(loc, 1);
     });
     gl.bindVertexArray(null);
+    const fp = gl.createProgram();
+    gl.attachShader(fp, compile(gl, gl.VERTEX_SHADER, FLOOR_VS));
+    gl.attachShader(fp, compile(gl, gl.FRAGMENT_SHADER, FLOOR_FS));
+    gl.linkProgram(fp);
+    this.fprog = fp;
+    this.fu = {};
+    for (const u of ['u_tex', 'u_res', 'u_cam', 'u_hor', 'u_box', 'u_minY', 'u_spot', 'u_bg']) this.fu[u] = gl.getUniformLocation(fp, u);
+    this.fvao = gl.createVertexArray();
+    this.tex = null;
+    if (this.floorSrc) this.setFloor(this.floorSrc.canvas, this.floorSrc.box);
   }
+  // The court texture for the TV camera (a top-down drawing of the floor).
+  setFloor(canvas, box) {
+    const gl = this.gl;
+    this.floorSrc = { canvas, box };
+    if (this.lost) return;
+    if (!this.tex) this.tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const an = gl.getExtension('EXT_texture_filter_anisotropic');
+    if (an) gl.texParameterf(gl.TEXTURE_2D, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+  }
+  // Draw the perspective floor this frame (under every shape). cam: { x, height, yPos, f, hor, minY, spot }
+  floor(cam) { this.floorCam = cam; }
   begin(cx, cy, ppm, clear) {
     this.setView(cx, cy, ppm);
     this.n = 0;
     this.clear = clear;
+    this.floorCam = null;
   }
   push(ax, ay, bx, by, c, kind, p1, p2, p3 = 0) {
     if (this.n >= this.cap) {
@@ -194,6 +268,25 @@ class GLRenderer extends Base {
     const c = this.clear;
     gl.clearColor(c[0], c[1], c[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    const fc = this.floorCam;
+    if (fc && this.tex) {
+      const b = this.floorSrc.box, u = this.fu, sp = fc.spot || [0, 0, 1, 0];
+      gl.disable(gl.BLEND);
+      gl.useProgram(this.fprog);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      gl.uniform1i(u.u_tex, 0);
+      gl.uniform2f(u.u_res, this.canvas.width, this.canvas.height);
+      gl.uniform4f(u.u_cam, fc.x, fc.height, fc.yPos, fc.f);
+      gl.uniform1f(u.u_hor, fc.hor);
+      gl.uniform4f(u.u_box, b[0], b[1], b[2], b[3]);
+      gl.uniform1f(u.u_minY, fc.minY);
+      gl.uniform4f(u.u_spot, sp[0], sp[1], sp[2], sp[3]);
+      gl.uniform4f(u.u_bg, c[0], c[1], c[2], 1);
+      gl.bindVertexArray(this.fvao);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindVertexArray(null);
+    }
     if (!this.n) return;
     gl.useProgram(this.prog);
     gl.uniform2f(this.uCam, this.cam.x, this.cam.y);
@@ -289,6 +382,26 @@ class CanvasRenderer extends Base {
     g.moveTo(x1, y1); g.lineTo(x2, y2); g.lineTo(x3, y3); g.closePath();
     g.fill();
     if (round > 0) { g.strokeStyle = css(c); g.lineWidth = round * 2; g.stroke(); }
+  }
+  setFloor(canvas, box) { this.floorSrc = { canvas, box }; }
+  // Canvas fallback for the perspective floor: one source row per screen row.
+  floor(cam) {
+    const src = this.floorSrc;
+    if (!src) return;
+    const g = this.g, [x0, y0, x1, y1] = src.box, cv = src.canvas;
+    const kx = cv.width / (x1 - x0), ky = cv.height / (y1 - y0), w = this.canvas.width, h = this.canvas.height;
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    for (let sy = Math.max(0, Math.ceil(cam.hor + 1)); sy < h; sy += 2) {
+      const d = (cam.f * cam.height) / (sy + 1 - cam.hor), wy = cam.yPos - d;
+      if (wy < cam.minY) continue;
+      const xL = cam.x - (w / 2) * d / cam.f, xR = cam.x + (w / 2) * d / cam.f;
+      const sx = (xL - x0) * kx, sw = (xR - xL) * kx;
+      g.drawImage(cv, sx, Math.max(0, Math.min(cv.height - 1, (wy - y0) * ky)), sw, 1, 0, sy, w, 2);
+    }
+    const sp = cam.spot;
+    if (sp && sp[3] > 0) { g.fillStyle = `rgba(4,6,24,${sp[3] * 0.8})`; g.fillRect(0, Math.max(0, cam.hor), w, h); }
+    g.restore();
   }
   end() {}
 }

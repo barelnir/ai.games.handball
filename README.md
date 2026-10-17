@@ -17,6 +17,7 @@ You play the **Hornets** (yellow) against the **Vipers** (red), 7 v 7 on a 40 ×
 | Aim a shot | Push the stick up or down while winding up | W / S |
 | Special power | POWER (slot reserved) | L |
 | Pause | ❚❚ | P / Esc |
+| View: top / TV camera / night | 🎥 (top corner) | menu |
 
 ## Rules that are simulated
 
@@ -40,6 +41,7 @@ js/game.js          The match: players, ball physics, rules, referees, AI (no DO
 js/court.js         Court geometry in metres (goal area "D", 9 m line, 7 m mark…)
 js/render.js        Renderer: WebGL 2 (instanced SDF shapes, one draw call) with a Canvas 2D fallback
 js/toon.js          Cartoon art: hero squads, court, goals, referees, ball (built from 5 primitives)
+js/tv.js            TV camera view (like FIFA): perspective court, stands, LED boards, 3D goals, night lighting
 js/input.js         Keyboard + multi-touch joystick and buttons
 js/audio.js         Synthesised music loop, whistle, ball and crowd sounds (WebAudio, no audio files)
 mock/index.html     Character sheet / look-and-feel mock
@@ -54,6 +56,15 @@ tests/e2e.mjs       Playwright phone test of the real game (`npm run e2e`)
 **Graphics:** every shape (ellipse, rounded rectangle, ring, capsule line, rounded triangle) is one instance of a quad. A GLSL fragment shader shades it with an anti-aliased signed-distance function, so the whole frame is a single `drawArraysInstanced(…, 6, n)` call. Browsers without WebGL 2 automatically use the Canvas 2D renderer, which has the same API. The renderer in use is shown on the menu screen.
 
 **Heroes:** chibi-style players (head about half the height) with ink outlines, drawn upright on a top-down court. Each squad has 7 named heroes with their own hair, masks, capes, goggles and chest emblems, and poses for running, dribbling, jump shots, stealing, blocking and goalkeeper dives. `PACE` in `js/game.js` sets the overall game speed.
+
+## Views
+
+The 🎥 button (top corner, next to the music button) switches the view during a match. The choice is remembered and is also in the menu:
+- **Top (מלמעלה):** the camera looks down on the court.
+- **TV (טלוויזיה):** a high camera on the sideline, like a TV broadcast. The court has depth, and there are stands full of fans, LED boards and 3D goals. The heroes are drawn 30% bigger than life, so they stay easy to see.
+- **Night (לילה):** the TV camera in a dark arena, with a spotlight that follows your player.
+
+In the TV view the renderer draws the court as one texture in perspective (a full-screen WebGL pass, or row by row on Canvas 2D). The upright things are drawn by the usual toon code through a proxy that scales them for their distance.
 
 ## Heroes and powers
 
@@ -94,6 +105,7 @@ The match then starts. 40% of the time the computer's team is led by one of the 
   - double-tap zoom;
   - every power through the real POWER button, including armed powers;
   - the computer's power, menus and the upright-phone hint;
+  - the view button (top, TV, night), steering in the TV view, and remembering the view;
   - a fast-forwarded full match.
   - `ONLY=control,power` runs some sections. `SERVE_DIR=…` tests a stamped build.
 

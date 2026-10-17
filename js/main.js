@@ -8,11 +8,12 @@ import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { POWERS_ENABLED, ENERGY_MAX } from './powers.js';
 import { PROFILES, TEMPLATES, profileById, drawPortrait } from './heroes.js';
+import { TVCam, makeFloor, renderTV } from './tv.js';
 
 const $ = (s) => document.querySelector(s);
 const STEP = 1 / 60;
 
-const settings = { difficulty: 'normal', half: '300', rules: 'arcade', sound: true, music: true, hero: 'eitan', power: 'lightning' };
+const settings = { difficulty: 'normal', half: '300', rules: 'arcade', sound: true, music: true, hero: 'eitan', power: 'lightning', view: 'top' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('handball7') || '{}')); } catch {}
 const save = () => { try { localStorage.setItem('handball7', JSON.stringify(settings)); } catch {} };
 
@@ -22,6 +23,12 @@ let mode = 'menu';           // menu | play | paused | break
 let acc = 0, last = 0, now = 0;
 let excite = 0;
 const cam = { x: W / 2, y: H / 2, ppm: 20 };
+// Views: 'top' (camera above the court), 'tv' (TV camera like FIFA), 'night' (TV camera, night game)
+const VIEWS = ['top', 'tv', 'night'];
+const VIEW_NAMES = { top: 'מלמעלה', tv: 'טלוויזיה', night: 'לילה' };
+const tvCam = new TVCam();
+let floorReady = false;
+const isTV = () => settings.view === 'tv' || settings.view === 'night';
 const input = new Input($('#touch'));
 const sound = new Sound();
 sound.muted = !settings.sound;
@@ -197,6 +204,7 @@ function bindUI() {
       if (!b) return;
       settings[key] = b.dataset.v;
       save(); sync();
+      if (key === 'view') $('#btnView').dataset.view = settings.view;
     });
     sync();
   });
@@ -213,6 +221,18 @@ function bindUI() {
   $('#brNext').addEventListener('click', () => {
     if (game.state === 'halftime') { game.startSecondHalf(); setMode('play'); }
     else startMatch();
+  });
+  const vb = $('#btnView');
+  const syncView = () => {
+    vb.setAttribute('aria-label', 'תצוגה: ' + VIEW_NAMES[settings.view]);
+    vb.dataset.view = settings.view;
+    document.querySelectorAll('.seg[data-key="view"] button').forEach((b) => b.classList.toggle('on', b.dataset.v === settings.view));
+  };
+  if (!VIEWS.includes(settings.view)) settings.view = 'top';
+  syncView();
+  vb.addEventListener('click', () => {
+    settings.view = VIEWS[(VIEWS.indexOf(settings.view) + 1) % VIEWS.length]; save(); syncView();
+    if (game) game.say('תצוגה: ' + VIEW_NAMES[settings.view], '', 1.2, 'soft');
   });
   const mb = $('#btnMusic');
   mb.classList.toggle('off', !sound.musicOn);
@@ -311,6 +331,15 @@ function handleEvents() {
 
 function updateCamera(dt) {
   const c = R.canvas;
+  if (isTV()) {
+    let tx = W / 2;
+    if (mode !== 'menu' && mode !== 'pick') {
+      const b = game.ball, r = b.owner || b;
+      tx = r.x + (game.teams[game.poss].defX === 0 ? 1 : -1) * 2.5;
+    }
+    tvCam.update(c.width, c.height, tx, dt, false);
+    return;
+  }
   let ppm, tx, ty;
   if (mode === 'menu' || mode === 'pick') {
     ppm = Math.min(c.width / 50, c.height / 27);
@@ -342,6 +371,16 @@ function render() {
     trail.push({ x: b.x, y: b.y, z: b.z });
     if (trail.length > 26) trail.shift();
   } else trail.length = 0;
+  if (isTV()) {
+    if (!floorReady) { R.setFloor(makeFloor(createRenderer).canvas, [-14, -12, W + 14, H + 12]); floorReady = true; }
+    if (!tvCam.ready || tvCam.w !== R.canvas.width || tvCam.h !== R.canvas.height) tvCam.update(R.canvas.width, R.canvas.height, tvCam.x, 0, true);
+    const my = input.state.my;
+    renderTV(R, tvCam, {
+      game: g, now, excite, night: settings.view === 'night', trail, mode, hint: HINT, soft: SOFT,
+      aimY: Math.abs(my) > 0.25 ? my * 1.3 : 0, ruleDots: drawRuleDots,
+    });
+    return;
+  }
   R.begin(cam.x, cam.y, cam.ppm, T.TP.clear);
   T.drawToonArena(R, now, excite);
   T.drawToonGoalBack(R, 0);
@@ -381,7 +420,7 @@ function render() {
 
   if (c && c.active && mode !== 'menu') {
     T.drawHeadTag(R, c, now, HINT);
-    drawRuleDots(c);
+    drawRuleDots(R, c);
     if (c.charging) drawAim(c);
   }
   R.end();
@@ -397,7 +436,7 @@ function renderSplash(left) {
   R.end();
 }
 
-function drawRuleDots(p) {
+function drawRuleDots(R, p) {
   if (!game.full || game.ball.owner !== p || p.gk) return;
   const y = p.y - p.z * Z2Y - 1.5;
   if (p.carry === 'fresh' || p.carry === 'held' || (game.lock && game.lock.p === p && game.state === 'play')) {

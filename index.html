@@ -34,6 +34,7 @@
   </div>
   <div id="banner" class="banner" aria-live="assertive"><strong id="bTitle"></strong><span id="bSub"></span></div>
   <div class="corner">
+    <button id="btnView" class="ico" aria-label="תצוגה: מלמעלה"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="13" height="10" rx="2.2" fill="currentColor"/><path d="M16.5 10.5l5-3v9l-5-3z" fill="currentColor"/></svg></button>
     <button id="btnMusic" class="ico" aria-label="מוזיקה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="3" fill="currentColor"/><circle cx="17.5" cy="16" r="3" fill="currentColor"/></svg></button>
     <button id="btnSound" class="ico" aria-label="צלילים"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
     <button id="btnFull" class="ico" aria-label="מסך מלא">⤢</button>
@@ -77,6 +78,11 @@
       <fieldset><legend>חוקים</legend>
         <div class="seg" data-key="rules">
           <button data-v="full">אמיתיים</button><button data-v="arcade">קלים</button>
+        </div>
+      </fieldset>
+      <fieldset><legend>תצוגה</legend>
+        <div class="seg" data-key="view">
+          <button data-v="top">מלמעלה</button><button data-v="tv">טלוויזיה</button><button data-v="night">לילה</button>
         </div>
       </fieldset>
     </div>
