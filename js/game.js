@@ -69,12 +69,15 @@ export class Game {
       stats: { shots: 0, goals: 0, saves: 0, steals: 0, fouls: 0, turnovers: 0, suspensions: 0 },
     }));
     this.all = [...this.teams[0].players, ...this.teams[1].players];
+    // club colours and names (kids' league), from clubs.js matchKits()
+    if (this.opts.kits) this.teams.forEach((t, i) => Object.assign(t.kit, this.opts.kits[i]));
     // the player's own hero (from a photo) plays centre back, with the chosen power template
     const h = this.opts.human;
     const pick = () => TEMPLATE_LIST[(Math.random() * TEMPLATE_LIST.length) | 0];
     for (const t of this.teams) {
       const cb = t.players.find((p) => p.role === 'CB');
-      const teamOf = (pr) => Object.assign(t.kit, { he: `הנבחרת של ${pr.nameHe}`, to: `לנבחרת של ${pr.nameHe}`, abbr: pr.nameHe });
+      // a team is named after its kid, unless it plays as a club
+      const teamOf = (pr) => t.kit.club || Object.assign(t.kit, { he: `הנבחרת של ${pr.nameHe}`, to: `לנבחרת של ${pr.nameHe}`, abbr: pr.nameHe });
       if (t.idx === h) {
         this.profile = profileById(this.opts.hero);
         this.template = TEMPLATES[this.opts.power] || TEMPLATES.lightning;
