@@ -25,7 +25,7 @@ export const PROFILES = [
   },
   {
     // brown hair with a long fringe swept to one side, freckles on the nose and cheeks, a sly closed smile
-    id: 'rafael', name: 'Rafael', nameHe: 'רפאל',
+    id: 'rafael', name: 'Rafael', nameHe: 'רפל',
     skin: '#f0c4a2', skinShade: '#dda080', hair: '#5e4128', hairHi: '#8e6a46', brow: '#4a3420',
     iris: '#4a2e1c', glasses: null, style: 'side', mouth: 'smirk', freckles: '#c98a62',
   },

@@ -117,7 +117,7 @@ await run('flow', async () => {
   await wait(page, 400);
   check(await page.isVisible('#pickTeams'), 'tap Play -> pick a team');
   const teams = await page.locator('#pickTeams .pick-card b').allTextContents();
-  check(teams.length === 4 && ['אייל', 'אמה', 'איתן', 'רפאל'].every((n) => teams.some((s) => s.includes(n))), 'four kids\' teams, Rafael too', teams.join(' | '));
+  check(teams.length === 4 && ['אייל', 'אמה', 'איתן', 'רפל'].every((n) => teams.some((s) => s.includes(n))), 'four kids\' teams, Rafael too', teams.join(' | '));
   await page.screenshot({ path: `${out}/02-pick-team.png` });
   await t.tapEl('#pickTeams .pick-card', 2);
   await wait(page, 400);
@@ -410,7 +410,7 @@ await run('clubs', async () => {
   // national teams: Rafael's team as Israel against Spain
   await page.reload(); await wait(page, 1200);
   await t.tapEl('#play'); await wait(page, 300);
-  await t.tapEl('#pickTeams .pick-card:has-text("רפאל")'); await wait(page, 300);
+  await t.tapEl('#pickTeams .pick-card:has-text("רפל")'); await wait(page, 300);
   await t.tapEl('#pickPowers .pick-card', 1); await wait(page, 300);
   await t.tapEl('#lineupGo'); await wait(page, 400);
   await t.tapEl('#clubTabs button[data-g="nation"]'); await wait(page, 200);
@@ -423,7 +423,7 @@ await run('clubs', async () => {
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
   const k2 = await G(page, () => ({ teams: handball.game.teams.map((tm) => tm.kit.he), badge: handball.game.teams[0].kit.badge, cb: handball.game.teams[0].players.find((p) => p.role === 'CB').hero.nameHe }));
   check(k2.badge === 'israel', 'Israel wears the flag on the shirt', k2.badge);
-  check(k2.teams[0] === 'ישראל' && k2.teams[1] === 'ספרד' && k2.cb === 'רפאל', 'Israel (with Rafael) against Spain', `${k2.teams.join(' - ')} · ${k2.cb}`);
+  check(k2.teams[0] === 'ישראל' && k2.teams[1] === 'ספרד' && k2.cb === 'רפל', 'Israel (with Rafael) against Spain', `${k2.teams.join(' - ')} · ${k2.cb}`);
   check(errors.length === 0, 'no errors with clubs', errors.join(' | '));
   await page.close();
 });
