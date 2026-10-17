@@ -332,12 +332,15 @@ await run('view', async () => {
   check(await view() === 'tv', 'quick taps on the button all count');
   // the joystick still steers in the TV view, and the camera follows across the court
   const c = await t.center('#stick');
+  // (not while the computer's ice power holds your team, or during a power close-up)
+  await page.waitForFunction(() => { const g = handball.game, p = g.controlled; return g.state === 'play' && !(g.splash > 0) && p && !(p.frozen > 0); }, null, { timeout: 15000, polling: 50 });
   const m0 = await me(page);
   await t.down(1, c.x, c.y); await t.move(1, c.x + 25, c.y); await t.move(1, c.x + 50, c.y);
   await waitGame(page, 0.8);
   const m1 = await me(page);
+  const why = await G(page, () => { const g = handball.game, c = g.controlled; return { state: g.state, splash: g.splash, frozen: c && c.frozen, stick: handball.input.state.mx, mode: handball.mode }; });
   await t.up(1);
-  check(m1 && m0 && m1.id === m0.id ? m1.x > m0.x + 0.5 : m1 && m1.sp > 1.5, 'the joystick steers in the TV view', m0 && m1 ? `${m0.x.toFixed(1)} -> ${m1.x.toFixed(1)}` : '');
+  check(m1 && m0 && m1.id === m0.id ? m1.x > m0.x + 0.5 : m1 && m1.sp > 1.5, 'the joystick steers in the TV view', m0 && m1 ? `${m0.x.toFixed(1)} -> ${m1.x.toFixed(1)} ${JSON.stringify(why)}` : '');
   const cam = await G(page, () => { const g = handball.game, b = g.ball, r = b.owner || b; return { ball: r.y }; });
   check(Number.isFinite(cam.ball), 'the TV camera keeps running');
   // the choice is remembered; an old "night" choice becomes the TV camera
