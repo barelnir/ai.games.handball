@@ -1,6 +1,7 @@
 // Intensive browser test: plays the real game in headless Chromium as a phone held sideways,
 // using real touch events (CDP), not mouse clicks. Run: npm run e2e
-// Env: CHROMIUM=/path/to/chrome. Screenshots go to ./test-results/.
+// Env: CHROMIUM=/path/to/chrome, ONLY=flow,kids (some sections), E2E_DPR=2 (sharper, slower).
+// Screenshots go to ./test-results/. `npm run e2e` runs the sections in parallel (tests/run-e2e.mjs).
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -36,10 +37,14 @@ const check = (ok, name, info = '') => {
   if (ok) passed++; else failed++;
 };
 const wait = (page, ms) => page.waitForTimeout(ms);
+// pixels per CSS pixel: 1 is plenty for the checks (the software renderer draws 4x fewer pixels than at 2)
+const DPR = Number(process.env.E2E_DPR) || 1;
+// wait until the page has booted (instead of a fixed pause)
+const ready = (page) => page.waitForFunction(() => window.handball && handball.game && document.querySelector('#gfx').textContent !== '…', null, { timeout: 20000, polling: 50 });
 
 // ---------------------------------------------------------------- phone helpers (real touches)
 async function phone(opts = {}) {
-  const page = await browser.newPage({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, ...opts });
+  const page = await browser.newPage({ viewport: { width: 844, height: 390 }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true, ...opts });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/favicon|404|fonts\.g/.test(m.text())) errors.push(m.text()); });
@@ -78,7 +83,7 @@ const me = (page) => G(page, () => { const g = handball.game, c = g.controlled; 
 async function startMatch(P, kid = null, power = null) {
   const { page, t } = P;
   await page.goto(url);
-  await wait(page, 1200);
+  await ready(page);
   await t.tapEl('#play');
   await wait(page, 300);
   await t.tapEl('#teamCards .lu-card:visible', 0);
@@ -94,7 +99,9 @@ async function startMatch(P, kid = null, power = null) {
 const run = async (name, fn) => {
   if (ONLY && !ONLY.includes(name)) return;
   console.log(`\n--- ${name}`);
+  const t0 = Date.now();
   try { await fn(); } catch (e) { check(false, `${name} crashed`, e.message.split('\n')[0]); }
+  console.log(`    (${name}: ${((Date.now() - t0) / 1000).toFixed(0)}s)`);
 };
 
 // ---------------------------------------------------------------- 1. start flow, Hebrew, fonts, music
@@ -109,7 +116,8 @@ await run('flow', async () => {
     AudioNode.prototype.connect = function (d, ...r) { if (d instanceof AudioDestinationNode && this.context.__an) conn.call(this, this.context.__an); return conn.call(this, d, ...r); };
   });
   await page.goto(url);
-  await wait(page, 1500);
+  await ready(page);
+  await G(page, () => document.fonts.ready.then(() => 1));
   check(/WebGL 2|Canvas/.test(await page.textContent('#gfx')), 'renderer starts');
   const font = await G(page, () => getComputedStyle(document.querySelector('h1')).fontFamily + ' ' + getComputedStyle(document.querySelector('h1')).fontWeight);
   check(/Rubik/.test(font) && /900/.test(font), 'title uses the heavy Hebrew font', font);
@@ -335,7 +343,7 @@ await run('menus', async () => {
 await run('kids', async () => {
   const P = await phone();
   const { page, t, errors } = P;
-  await page.goto(url); await wait(page, 1200);
+  await page.goto(url); await ready(page);
   await t.tapEl('#play'); await wait(page, 300);
   await t.tapEl('#teamCards .lu-card:has-text("א.כ. נס ציונה")'); await wait(page, 300);
   const on = () => page.locator('.kid-card.in b').allTextContents();
@@ -374,7 +382,7 @@ await run('kids', async () => {
 await run('teams', async () => {
   const P = await phone();
   const { page, t, errors } = P;
-  await page.goto(url); await wait(page, 1200);
+  await page.goto(url); await ready(page);
   // national teams: רפל as captain for Israel
   await t.tapEl('#play'); await wait(page, 300);
   await t.tapEl('#teamTabs button[data-g="nation"]'); await wait(page, 200);
@@ -399,7 +407,7 @@ await run('teams', async () => {
   check(k2.join() === k.teams.join(), '"מתחילים מחדש" keeps the same teams', k2.join(' - '));
   // back to the home screen: "play again" in one tap
   await t.tapEl('#btnPause'); await t.tapEl('#toMenu'); await wait(page, 400);
-  await page.reload(); await wait(page, 1200);
+  await page.reload(); await ready(page);
   check(await page.isVisible('#again') && (await page.textContent('#againSub')).includes('ישראל'), 'home: "שחקו שוב" with last time\'s match', await page.textContent('#againSub'));
   await page.screenshot({ path: `${out}/01b-home-again.png` });
   await t.tapEl('#again');
@@ -424,7 +432,7 @@ await run('teams', async () => {
   check(await G(page, () => handball.game.opts.halfLen) === 180, 'settings reach the match');
   // old saved data (handball7) carries over
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('handball7', JSON.stringify({ hero: 'emma', myClub: 'holon', half: '600', view: 'night' })); });
-  await page.reload(); await wait(page, 1200);
+  await page.reload(); await ready(page);
   await t.tapEl('#play'); await wait(page, 300);
   check(await G(page, () => document.querySelector('#teamCards .lu-card.sel b').textContent) === 'מכבי חולון', 'old saved team carries over');
   await t.tapEl('#teamCards .lu-card.sel'); await wait(page, 300);
@@ -462,10 +470,10 @@ await run('view', async () => {
   const cam = await G(page, () => { const g = handball.game, b = g.ball, r = b.owner || b; return { ball: r.y }; });
   check(Number.isFinite(cam.ball), 'the TV camera keeps running');
   // the choice is remembered; an old "night" choice becomes the TV camera
-  await page.reload(); await wait(page, 1200);
+  await page.reload(); await ready(page);
   check(await view() === 'tv', 'the view is remembered after a reload');
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('handball7', JSON.stringify({ view: 'night' })); });
-  await page.reload(); await wait(page, 1200);
+  await page.reload(); await ready(page);
   check(await view() === 'tv', 'an old night setting opens the TV camera');
   check(errors.length === 0, 'no errors while switching views', errors.join(' | '));
   await page.close();

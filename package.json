@@ -6,6 +6,7 @@
   "scripts": {
     "start": "python3 -m http.server 8080",
     "test": "node tests/sim.mjs && node tests/power.mjs && node tests/pass.mjs && node tests/lineup.mjs",
-    "e2e": "node tests/e2e.mjs"
+    "e2e": "node tests/run-e2e.mjs",
+    "e2e:serial": "node tests/e2e.mjs"
   }
 }
