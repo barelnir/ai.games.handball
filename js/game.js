@@ -895,6 +895,7 @@ export class Game {
     }
     if (b.state === 'dead') return;
     b.age += dt;
+    if (b.state === 'pass') this.magnet(dt);
     const px = b.x, py = b.y, pz = b.z;
     b.vz -= G * dt;
     b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt;
@@ -988,6 +989,21 @@ export class Game {
     return false;
   }
 
+  // A pass is a magnet for its receiver: the ball bends toward the teammate (wherever they run) and
+  // arrives at hand height, so passes land instead of rolling away.
+  magnet(dt) {
+    const b = this.ball, m = b.passTo;
+    if (!m || !m.active || m.frozen > 0) return;
+    const dx = m.x - b.x, dy = m.y - b.y, d = hyp(dx, dy);
+    if (d < 0.05) return;
+    const sp = Math.max(hyp(b.vx, b.vy), 9 * PACE), k = Math.min(1, 9 * dt);
+    b.vx += (dx / d * sp - b.vx) * k;
+    b.vy += (dy / d * sp - b.vy) * k;
+    const T = d / sp;
+    if (T > 0.04) b.vz += ((1.2 + m.z - b.z + 0.5 * G * T * T) / T - b.vz) * k;
+    b.tx = m.x; b.ty = m.y;
+  }
+
   catchCheck() {
     const b = this.ball;
     const inArea0 = goalDist(b.x, b.y, 0) < 6, inAreaW = goalDist(b.x, b.y, W) < 6;
@@ -1003,11 +1019,13 @@ export class Game {
       const m = this.powers.mod(p, 'catchRadius');
       let r = (p.gk ? 0.65 : 0.5) * m;
       if (b.state === 'pass') {
-        if (p === b.passTo) r = 0.75 * m;
+        if (p === b.passTo) r = 1.05 * m;
         else if (p.team !== b.lastTeam) {
           if (d >= r || b.tried.has(p)) continue;
           b.tried.add(p);
-          if (Math.random() >= this.diffFor(p).intercept * (b.z < 1.6 ? 1 : 0.5)) continue;
+          // your passes are hard to cut off (the magnet pulls the ball past defenders)
+          const shield = b.lastTeam === this.opts.human ? 0.12 : 1;
+          if (Math.random() >= this.diffFor(p).intercept * shield * (b.z < 1.6 ? 1 : 0.5)) continue;
         }
       } else if (b.z > 1.3 + p.z) continue;
       if (d < r && d < bd) { bd = d; best = p; }

@@ -75,6 +75,8 @@ The match then starts. 40% of the time the computer's team is led by one of the 
 - **Your team has the ball:** the match freezes for a full-screen close-up of your hero (big head, flexing muscles, in the power's costume). The ball is then powered for 10 seconds, in the hands of whoever has it.
 - **The rivals have the ball:** the power is armed, and fires the moment your team gets the ball.
 
+**Passes are magnetic:** the ball bends toward the teammate it was passed to, wherever they run, and your passes are hard for the computer to cut off.
+
 **Your player always answers the joystick**, including at throw-offs and set pieces. The default rules are *Easy* (no 3-step or 3-second calls). *Real* is still in the menu.
 
 **Where things live:**
@@ -85,7 +87,7 @@ The match then starts. 40% of the time the computer's team is led by one of the 
 
 ## Tests
 
-- `npm test`: headless matches (`tests/sim.mjs`) plus every power end to end (`tests/power.mjs`).
+- `npm test`: headless matches (`tests/sim.mjs`), every power end to end (`tests/power.mjs`) and the pass magnet (`tests/pass.mjs`).
 - `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. It covers:
   - the pick flow, Hebrew labels and fonts, and the music level;
   - the joystick: never moves by itself, always stops on release, two thumbs, cancelled touches, a stale touch replaced by a new one;
