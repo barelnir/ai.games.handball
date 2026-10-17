@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מראה כמו פיפ"א</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&display=swap">
+<style>
+body { margin: 0; background: #0b1230; color: #f3f5ff; font: 500 16px/1.5 'Rubik', Arial, sans-serif; padding: 20px 16px 48px; }
+main { max-width: 900px; margin: 0 auto; display: grid; gap: 34px; }
+h1 { margin: 0; font-weight: 900; font-size: clamp(30px, 7vw, 48px); line-height: 1.05; }
+h2 { margin: 0 0 6px; font-weight: 900; font-size: 24px; }
+h2 b { color: #ffd23f; }
+p { margin: 0 0 12px; color: #b9c3e8; }
+.phone { aspect-ratio: 844 / 390; border: 9px solid #03050c; border-radius: 30px; overflow: hidden; background: #03050c; box-shadow: 0 16px 44px rgba(0,0,0,.5); direction: ltr; }
+canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>איך המשחק ייראה "כמו בפיפ"א"?</h1><p>שלוש דוגמאות מאותו רגע במשחק: איתן מסתער לשער. בחרו את מה שהכי אהבתם.</p></header>
+  <section><h2><b>א.</b> מצלמת טלוויזיה</h2><p>מצלמה גבוהה בצד המגרש, כמו בשידור. רואים עומק, יציע מלא קהל, שלטי פרסומת, פרקט מבריק ולוח תוצאות של טלוויזיה.</p><div class="phone"><canvas data-style="A"></canvas></div></section>
+  <section><h2><b>ב.</b> מצלמה קרובה ודרמטית</h2><p>אותו סגנון, אבל המצלמה נמוכה וקרובה יותר: הגיבורים גדולים יותר ויש יותר עומק.</p><div class="phone"><canvas data-style="B"></canvas></div></section>
+  <section><h2><b>ג.</b> המצלמה של היום, עם ליטוש</h2><p>אותה מצלמה מלמעלה כמו עכשיו, עם פרקט, אורות, צללים, לוח תוצאות של טלוויזיה וסימון של השחקן שלכם.</p><div class="phone"><canvas data-style="C"></canvas></div></section>
+</main>
+<script type="module">import { run } from './fifa.js'; run();</script>
+</body>
+</html>
