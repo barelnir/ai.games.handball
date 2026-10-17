@@ -1,5 +1,5 @@
-// Clubs from the Israeli kids' handball leagues and national teams: names and shirt colours only
-// (no badges).
+// Israeli handball clubs and national teams: names, shirt colours, and a badge (a flag for the
+// nations, an emblem of our own for the clubs).
 // You can play as one of them, and pick one as the opponent. When both teams' shirts look alike,
 // the opponent wears its white away kit so the two teams are easy to tell apart.
 
@@ -14,27 +14,40 @@ const CRESTS = {
   'hapoel-rishon': { a: '#e23b3b', b: '#ffffff', txt: 'ה״ר', p: 'stripes' },
   'maccabi-rishon': { a: '#ffd23f', b: '#1d4fbf', txt: 'מ״ר', p: 'star' },
   'hapoel-ashdod': { a: '#c81e2a', b: '#161616', txt: 'ה״א', p: 'stripes' },
-  holon: { a: '#2f6fe0', b: '#ffffff', txt: 'ח״ל', p: 'band' },
-  'kfar-saba': { a: '#2fa84f', b: '#ffffff', txt: 'כ״ס', p: 'stripes' },
-  rehovot: { a: '#56b4f0', b: '#0b2a5a', txt: 'מ״ח', p: 'star' },
+  holon: { a: '#ffd23f', b: '#2f6fe0', txt: 'מ״ח', p: 'band' },
+  rehovot: { a: '#56b4f0', b: '#0b2a5a', txt: 'ע״ר', p: 'band' },
+  herzliya: { a: '#2f6fe0', b: '#ffd23f', txt: 'ב״ה', p: 'star' },
+  'maccabi-ta': { a: '#ffd23f', b: '#0b2a6b', txt: 'מכ״ת', p: 'star' },
+  'hapoel-rg': { a: '#e23b3b', b: '#ffffff', txt: 'ה״ר״ג', p: 'band' },
+  'kiryat-ono': { a: '#d62839', b: '#ffffff', txt: 'ק״א', p: 'band' },
+  'maccabi-bs': { a: '#ffd23f', b: '#1e1e1e', txt: 'מ״ב', p: 'stripes' },
+  motzkin: { a: '#ffd23f', b: '#2fa84f', txt: 'ק״מ', p: 'stripes' },
 };
 
 // group 'league': clubs from the kids' league; 'nation': national teams
+// The clubs of Israel's top handball league (Winner League, 2025/26 season), plus א.כ. נס ציונה.
+// Verified colours: נס ציונה orange ("הכתומים"), מכבי ראשון לציון yellow ("הצהובים"); the others
+// follow the usual club colours (Hapoel red, Maccabi yellow and blue).
 export const CLUBS = [
   { id: 'nes-ziona', he: 'א.כ. נס ציונה', short: 'נס ציונה', kit: kit('#ff7a1a', '#ffffff', '#ffffff', '#3f8ee6', '#0c2257') }, // "the Oranges"
   { id: 'hapoel-rishon', he: 'הפועל ראשון לציון', short: 'הפועל ראשל"צ', kit: kit('#e23b3b', '#ffffff', '#ffffff', '#3ccf74', '#0e3b22') },
-  { id: 'maccabi-rishon', he: 'מכבי ראשון לציון', short: 'מכבי ראשל"צ', kit: kit('#ffd23f', '#1d4fbf', '#1d4fbf', '#e8453c', '#4a0f0f') },
+  { id: 'maccabi-rishon', he: 'מכבי ראשון לציון', short: 'מכבי ראשל"צ', kit: kit('#ffd23f', '#1d4fbf', '#1d4fbf', '#e8453c', '#4a0f0f') }, // "the Yellows"
   { id: 'hapoel-ashdod', he: 'הפועל אשדוד', short: 'הפועל אשדוד', kit: kit('#c81e2a', '#161616', '#161616', '#3f8ee6', '#0c2257') },
-  { id: 'holon', he: 'הכדוריד חולון', short: 'חולון', kit: kit('#2f6fe0', '#ffffff', '#ffffff', '#ff9f1c', '#5a2e00') },
-  { id: 'kfar-saba', he: 'הפועל כפר סבא', short: 'כפר סבא', kit: kit('#2fa84f', '#ffffff', '#0e3b22', '#8b5cf6', '#24124f') },
-  { id: 'rehovot', he: 'מכבי רחובות', short: 'רחובות', kit: kit('#56b4f0', '#0b2a5a', '#0b2a5a', '#ffd23f', '#4a3a00') },
+  { id: 'holon', he: 'מכבי חולון', short: 'מכבי חולון', kit: kit('#ffd23f', '#2f6fe0', '#2f6fe0', '#e8453c', '#4a0f0f') },
+  { id: 'rehovot', he: 'עירוני רחובות', short: 'רחובות', kit: kit('#56b4f0', '#0b2a5a', '#0b2a5a', '#ffd23f', '#4a3a00') },
+  { id: 'herzliya', he: 'בני הרצליה', short: 'הרצליה', kit: kit('#2f6fe0', '#ffd23f', '#ffffff', '#ff9f1c', '#5a2e00') },
+  { id: 'maccabi-ta', he: 'מכבי תל אביב', short: 'מכבי ת"א', kit: kit('#ffd23f', '#0b2a6b', '#0b2a6b', '#3ccf74', '#0e3b22') },
+  { id: 'hapoel-rg', he: 'הפועל רמת גן', short: 'הפועל ר"ג', kit: kit('#e23b3b', '#ffffff', '#e23b3b', '#3f8ee6', '#0c2257') },
+  { id: 'kiryat-ono', he: 'הפועל קריית אונו', short: 'קריית אונו', kit: kit('#d62839', '#ffffff', '#1b2a4a', '#ffd23f', '#4a3a00') },
+  { id: 'maccabi-bs', he: 'מכבי באר שבע', short: 'מכבי ב"ש', kit: kit('#ffd23f', '#1e1e1e', '#1e1e1e', '#3f8ee6', '#0c2257') },
+  { id: 'motzkin', he: 'מכבי קריית מוצקין', short: 'מוצקין', kit: kit('#ffd23f', '#2fa84f', '#2fa84f', '#e8453c', '#4a0f0f') },
 ].map((c) => ({ ...c, group: 'league', kit: { ...c.kit, crest: CRESTS[c.id] } }));
 
 export const NATIONS = [
   { id: 'israel', he: 'ישראל', short: 'ישראל', kit: kit('#ffffff', '#1d4fbf', '#1d4fbf', '#ffd23f', '#4a3a00') },
   { id: 'spain', he: 'ספרד', short: 'ספרד', kit: kit('#d01f2e', '#ffcc00', '#1b2a6b', '#3ccf74', '#0e3b22') },
   { id: 'france', he: 'צרפת', short: 'צרפת', kit: kit('#1f3c99', '#ffffff', '#1f3c99', '#ff9f1c', '#5a2e00') },
-  { id: 'germany', he: 'גרמניה', short: 'גרמניה', kit: kit('#1e1e1e', '#ffcc00', '#1e1e1e', '#3ccf74', '#0e3b22') },
+  { id: 'germany', he: 'גרמניה', short: 'גרמניה', kit: kit('#ffffff', '#1e1e1e', '#1e1e1e', '#3ccf74', '#0e3b22') }, // white at home, black away
   { id: 'denmark', he: 'דנמרק', short: 'דנמרק', kit: kit('#c8102e', '#ffffff', '#ffffff', '#ffd23f', '#4a3a00') },
   { id: 'sweden', he: 'שוודיה', short: 'שוודיה', kit: kit('#ffcd00', '#005baa', '#005baa', '#e8453c', '#4a0f0f') },
   { id: 'norway', he: 'נורווגיה', short: 'נורווגיה', kit: kit('#ba0c2f', '#00205b', '#00205b', '#3ccf74', '#0e3b22') },

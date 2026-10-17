@@ -426,7 +426,7 @@ await run('teams', async () => {
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('handball7', JSON.stringify({ hero: 'emma', myClub: 'holon', half: '600', view: 'night' })); });
   await page.reload(); await wait(page, 1200);
   await t.tapEl('#play'); await wait(page, 300);
-  check(await G(page, () => document.querySelector('#teamCards .lu-card.sel b').textContent) === 'הכדוריד חולון', 'old saved team carries over');
+  check(await G(page, () => document.querySelector('#teamCards .lu-card.sel b').textContent) === 'מכבי חולון', 'old saved team carries over');
   await t.tapEl('#teamCards .lu-card.sel'); await wait(page, 300);
   check((await page.locator('.kid-card.in b').allTextContents()).join() === 'אמה', 'old saved hero becomes the team\'s kid');
   check(errors.length === 0, 'no errors with teams', errors.join(' | '));
