@@ -353,6 +353,7 @@ document.addEventListener('visibilitychange', () => {
 
 // ------------------------------------------------------------------ UI
 function bindUI() {
+  cleanSettings(); // old or broken saved choices are fixed before anything shows them
   document.querySelectorAll('.seg').forEach((seg) => {
     const key = seg.dataset.key;
     const sync = () => seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === String(settings[key])));

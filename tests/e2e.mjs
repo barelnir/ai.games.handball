@@ -330,8 +330,8 @@ await run('menus', async () => {
     await t.tapEl('#toMenu'); await wait(page, 400);
     check(await page.isVisible('#menu'), `round ${k + 1}: back to the menu`);
   }
-  await page.setViewportSize({ width: 390, height: 844 });
   await startMatch(P);
+  await page.setViewportSize({ width: 390, height: 844 }); // the phone turned upright mid-match
   await wait(page, 300);
   check(await page.isVisible('#rotate'), 'phone held upright: turn-sideways hint shows');
   check(errors.length === 0, 'no page errors (menus)', errors.slice(0, 2).join(' | '));
@@ -480,26 +480,33 @@ await run('view', async () => {
 });
 
 await run('match', async () => {
-  const page = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await page.clock.install();
-  await page.goto(url);
-  await page.clock.runFor(1500);
+  // A whole match: the simulation is fast-forwarded inside the page (no drawing in between), then the
+  // real game loop shows the half-time and full-time screens.
+  const P = await phone();
+  const { page, t, errors } = P;
+  await page.goto(url); await ready(page);
   await page.evaluate(() => { localStorage.setItem('handball7', JSON.stringify({ half: '180', music: false })); });
-  await page.reload();
-  await page.clock.runFor(1500);
-  await page.evaluate(() => { document.querySelector('#play').click(); document.querySelector('#teamCards .lu-card').click(); document.querySelector('#go').click(); });
-  await page.clock.runFor(500);
-  check(await page.evaluate(() => handball.mode === 'play'), 'the match starts after the three steps');
-  for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
+  await page.reload(); await ready(page);
+  await t.tapEl('#play'); await wait(page, 200);
+  await t.tapEl('#teamCards .lu-card:visible', 0); await wait(page, 200);
+  await t.tapEl('#go');
+  await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 10000 });
+  check(true, 'the match starts after the three steps');
+  const ff = (until) => G(page, (u) => { const g = handball.game; for (let i = 0; i < 60 * 400 && g.state !== u; i++) { g.step(1 / 60); g.events.length = 0; } return g.state; }, until);
+  check(await ff('halftime') === 'halftime', 'the first half plays to the end');
+  await page.waitForSelector('#break', { state: 'visible', timeout: 10000 });
   check(/מחצית/.test(await page.textContent('#brEyebrow')), 'half-time screen');
-  await page.evaluate(() => document.querySelector('#brNext').click());
-  await page.clock.runFor(2000);
-  check((await page.evaluate(() => handball.game.teams.map((t) => t.defX))).join() === '40,0', 'teams switch ends');
-  for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
+  await t.tapEl('#brNext');
+  await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 10000 });
+  check((await G(page, () => handball.game.teams.map((x) => x.defX))).join() === '40,0', 'teams switch ends');
+  check(await ff('fulltime') === 'fulltime', 'the second half plays to the end');
+  await page.waitForSelector('#break', { state: 'visible', timeout: 10000 });
   check(/סיום/.test(await page.textContent('#brEyebrow')), 'full-time screen', await page.textContent('#brScore'));
   check(await page.isVisible('#brNext') && (await page.textContent('#brNext')).includes('עוד משחק') && !(await page.isVisible('#brNewOpp')), 'end: "עוד משחק!" (no new opponent for הצרעות)');
+  const before = await G(page, () => handball.game.teams.map((x) => x.kit.he).join());
+  await t.tapEl('#brNext');
+  await page.waitForFunction(() => handball.mode === 'play' && handball.game.clock < 5, null, { timeout: 10000 });
+  check(await G(page, () => handball.game.teams.map((x) => x.kit.he).join()) === before, '"עוד משחק!" plays the same match again');
   check(errors.length === 0, 'no page errors (match)', errors.slice(0, 2).join(' | '));
   await page.close();
 });

@@ -105,7 +105,7 @@ Choices are saved under `handball8`. Older `handball7` data carries over once.
 ## Tests
 
 - `npm test`: headless matches (`tests/sim.mjs`), every power end to end (`tests/power.mjs`), the pass magnet (`tests/pass.mjs`) and the line-up (`tests/lineup.mjs`).
-- `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. It covers:
+- `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. The sections run in parallel, each in its own browser (`tests/run-e2e.mjs`, about 2 minutes; `npm run e2e:serial` runs them one by one). It covers:
   - the flow (4 taps from opening to the match), Hebrew labels and fonts, and the music level;
   - the kids screen: captain, friends, each kid's own power, the opponent chip, and the match matching the chip;
   - teams: national teams, flags, different shirts, "שחקו שוב" in one tap, restart keeps the match, back button, settings, old saved data;
@@ -114,8 +114,8 @@ Choices are saved under `handball8`. Older `handball7` data carries over once.
   - every power through the real POWER button, including armed powers;
   - the computer's power, menus and the upright-phone hint;
   - the view button (top, TV), quick taps, steering in the TV view, and remembering the view;
-  - a fast-forwarded full match.
-  - `ONLY=control,power` runs some sections. `SERVE_DIR=…` tests a stamped build.
+  - a full match (the simulation is fast-forwarded inside the page, then the real half-time and full-time screens).
+  - `ONLY=control,power` runs some sections, `JOBS=2` sets how many browsers run at once, and `E2E_DPR=2` draws at phone sharpness (slower). `SERVE_DIR=…` tests a stamped build.
 
 ## Deploy (GitHub Pages)
 
