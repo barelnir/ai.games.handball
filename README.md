@@ -75,6 +75,7 @@ In the TV view the renderer draws the court as one texture in perspective (a ful
 - **"באיזו קבוצה משחקים?"** has two tabs:
   - **ליגת הילדים:** הצרעות first, then the clubs.
   - **נבחרות:** national teams, with their flags.
+  - Clubs wear an emblem of our own: a shield in the club colours with its initials. It is not the official logo.
   - Tapping a team moves on.
 - **"מי משחק ב…?"**:
   - **Which kids play:** the four kids from the photos (איתן, אמה, אייל, רפל). All four play at first. One tap takes a kid out or puts them back, and at least one kid always plays. The Hornets' cartoon heroes fill the other places.
