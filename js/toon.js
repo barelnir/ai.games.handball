@@ -219,6 +219,7 @@ export function drawHero(R, h, kit, p, o = {}) {
   }
   R.ellipse(fx + (side ? dirX * 0.06 : 0) - 0.13 * (side ? 0 : 1), ey + 0.08, 0.035, 0.022, TP.blush);
   if (!side) R.ellipse(fx + 0.13, ey + 0.08, 0.035, 0.022, TP.blush);
+  if (h.freckles) { const fc = col(h.freckles); for (const k of side ? [0] : [-1, 1]) for (const [dx, dy] of [[0, 0], [0.03, 0.02], [-0.02, 0.025]]) R.ellipse(fx + (side ? dirX * 0.06 : k * 0.12) + dx, ey + 0.055 + dy, 0.009, 0.008, fc); }
   // mouth: open grin when shooting/celebrating, small smile otherwise
   const mx = side ? fx + dirX * 0.07 : fx, my = headY + 0.15;
   const shout = p.action === 'shoot' || p.charging || o.pose === 'cheer';
@@ -319,6 +320,15 @@ function drawHairFront(R, h, X, headY, HR, hair, skin, dirX, side, t, kit) {
         const bx = X - 0.15 + i * 0.1 + (side ? dirX * 0.03 : 0);
         R.tri(bx - 0.07, top + 0.04, bx + 0.07, top + 0.04, bx + 0.01, top + 0.16, hair);
       }
+      break;
+    }
+    case 'side': {
+      // a long fringe swept across the forehead to one side
+      const d = side ? dirX : 1;
+      cap(0);
+      T(R, X - d * HR * 0.98, top + 0.13, X + d * 0.02, top - 0.015, X + d * HR * 0.92, top + 0.22, hair, 0.02);
+      R.tri(X - d * HR * 0.9, top + 0.12, X + d * 0.02, top + 0.005, X + d * HR * 0.84, top + 0.2, hair, 0.015);
+      R.ellipse(X - d * 0.03, top + 0.07, HR * 0.85, 0.06, hair);
       break;
     }
     case 'swoop': {

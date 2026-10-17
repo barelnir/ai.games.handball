@@ -251,6 +251,7 @@ body:not(.touch) #stick { display: none; }
 @media (prefers-reduced-motion: reduce) { .pick-card { transition: none; } }
 /* step 4: our club and the opponent (kids' league) */
 .match-pick { display: grid; gap: 8px; padding-inline: 6px; }
+.club-tabs { justify-self: start; }
 .club-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .club-label { margin: 0; font: 900 17px/1.2 var(--display); color: var(--muted); }
 .club-chips { display: flex; flex-wrap: wrap; gap: 6px; }

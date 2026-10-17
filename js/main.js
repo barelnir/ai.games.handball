@@ -9,7 +9,7 @@ import { Sound } from './audio.js';
 import { POWERS_ENABLED, ENERGY_MAX } from './powers.js';
 import { PROFILES, TEMPLATES, profileById, drawPortrait, kidHero } from './heroes.js';
 import { TVCam, makeFloor, renderTV } from './tv.js';
-import { CLUBS, clubById, matchKits } from './clubs.js';
+import { ALL_TEAMS, clubById, matchKits } from './clubs.js';
 
 const $ = (s) => document.querySelector(s);
 const STEP = 1 / 60;
@@ -101,7 +101,12 @@ function kits() {
   return matchKits(KITS, clubById(settings.myClub), clubById(settings.rivalClub));
 }
 function buildMatchPick() {
-  const mine = [{ id: '', he: null, kit: KITS[0] }, ...CLUBS];
+  const mine = [{ id: '', he: null, kit: KITS[0] }, ...ALL_TEAMS];
+  // the kids' league or national teams
+  $('#clubTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b) { settings.clubGroup = b.dataset.g; save(); syncMatchPick(); }
+  });
   pick.myClubs = mine.map((c) => {
     const b = document.createElement('button');
     b.className = 'club-chip';
@@ -111,20 +116,24 @@ function buildMatchPick() {
     $('#myClubs').appendChild(b);
     return { c, el: b };
   });
-  const rivals = [{ id: '', he: KITS[1].he }, ...CLUBS];
+  const rivals = [{ id: '', he: KITS[1].he }, ...ALL_TEAMS];
   pick.rivals = rivals.map((c) => ({ c, ...miniCard($('#rivalCards'), () => { settings.rivalClub = c.id; save(); syncMatchPick(); }) }));
 }
 function syncMatchPick() {
-  const me = profileById(settings.hero);
+  const me = profileById(settings.hero), g = settings.clubGroup === 'nation' ? 'nation' : 'league';
   kits();
+  $('#clubTabs').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.g === g));
+  // show the chosen group (plus whatever is already picked)
+  const shown = (c, picked) => !c.id || c.group === g || c.id === picked;
   for (const m of pick.myClubs) {
     if (!m.c.id) m.el.querySelector('span').textContent = `הנבחרת של ${me.nameHe}`;
+    m.el.hidden = !shown(m.c, settings.myClub);
     m.el.classList.toggle('on', m.c.id === (settings.myClub || ''));
   }
   for (const r of pick.rivals) {
-    r.el.hidden = !!r.c.id && r.c.id === settings.myClub;
+    r.el.hidden = (!!r.c.id && r.c.id === settings.myClub) || !shown(r.c, settings.rivalClub);
     r.el.querySelector('b').textContent = r.c.he;
-    r.el.querySelector('small').textContent = r.c.id ? 'מליגת הילדים' : 'הקבוצה המצוירת';
+    r.el.querySelector('small').textContent = !r.c.id ? 'הקבוצה המצוירת' : r.c.group === 'nation' ? 'נבחרת' : 'מליגת הילדים';
     r.el.classList.toggle('sel', r.c.id === (settings.rivalClub || ''));
   }
   pick.dirty = true;
@@ -200,7 +209,7 @@ function syncLineup() {
   for (const c of pick.pool) {
     c.el.hidden = c.x.kid === settings.hero;
     c.el.classList.toggle('used', !!where[c.x.key]);
-    c.el.querySelector('small').textContent = where[c.x.key] ? POS_HE[where[c.x.key]] : (c.x.kid ? 'מהמשפחה' : 'בחוץ');
+    c.el.querySelector('small').textContent = where[c.x.key] ? POS_HE[where[c.x.key]] : (c.x.kid ? 'מהחבר׳ה' : 'בחוץ');
   }
   $('#luHint').textContent = pick.sel ? `בוחרים ${POS_HE[pick.sel]}: הקישו על שחקן מהרשימה` : `${me.nameHe} תמיד במרכז, עם הכוח. בחרו עמדה אחרת`;
 }

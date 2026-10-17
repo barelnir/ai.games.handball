@@ -117,7 +117,7 @@ await run('flow', async () => {
   await wait(page, 400);
   check(await page.isVisible('#pickTeams'), 'tap Play -> pick a team');
   const teams = await page.locator('#pickTeams .pick-card b').allTextContents();
-  check(teams.length === 3 && teams.some((s) => s.includes('אייל')) && teams.some((s) => s.includes('אמה')) && teams.some((s) => s.includes('איתן')), 'three kids\' teams', teams.join(' | '));
+  check(teams.length === 4 && ['אייל', 'אמה', 'איתן', 'רפאל'].every((n) => teams.some((s) => s.includes(n))), 'four kids\' teams, Rafael too', teams.join(' | '));
   await page.screenshot({ path: `${out}/02-pick-team.png` });
   await t.tapEl('#pickTeams .pick-card', 2);
   await wait(page, 400);
@@ -407,6 +407,22 @@ await run('clubs', async () => {
   check(k[0].shirt !== k[1].shirt, 'the two teams wear different shirts', `${k[0].shirt} / ${k[1].shirt}`);
   const board = await G(page, () => [...document.querySelectorAll('.board .abbr')].map((e) => e.textContent).join(' | '));
   check(!/צרעות|צפעונים/.test(board), 'the scoreboard shows the clubs', board);
+  // national teams: Rafael's team as Israel against Spain
+  await page.reload(); await wait(page, 1200);
+  await t.tapEl('#play'); await wait(page, 300);
+  await t.tapEl('#pickTeams .pick-card:has-text("רפאל")'); await wait(page, 300);
+  await t.tapEl('#pickPowers .pick-card', 1); await wait(page, 300);
+  await t.tapEl('#lineupGo'); await wait(page, 400);
+  await t.tapEl('#clubTabs button[data-g="nation"]'); await wait(page, 200);
+  const nations = await page.locator('#rivalCards .lu-card:visible b').allTextContents();
+  check(nations.includes('ספרד') && nations.includes('ישראל') && nations.length >= 8, 'national teams to pick', nations.join(' | '));
+  await t.tapEl('#myClubs .club-chip:has-text("ישראל")');
+  await t.tapEl('#rivalCards .lu-card:visible:has-text("ספרד")');
+  await page.screenshot({ path: `${out}/39b-nations.png` });
+  await t.tapEl('#lineupGo');
+  await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
+  const k2 = await G(page, () => ({ teams: handball.game.teams.map((tm) => tm.kit.he), cb: handball.game.teams[0].players.find((p) => p.role === 'CB').hero.nameHe }));
+  check(k2.teams[0] === 'ישראל' && k2.teams[1] === 'ספרד' && k2.cb === 'רפאל', 'Israel (with Rafael) against Spain', `${k2.teams.join(' - ')} · ${k2.cb}`);
   check(errors.length === 0, 'no errors with clubs', errors.join(' | '));
   await page.close();
 });

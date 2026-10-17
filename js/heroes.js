@@ -23,6 +23,12 @@ export const PROFILES = [
     skin: '#f1c9a9', skinShade: '#dfa785', hair: '#a88d63', hairHi: '#d4bc90', brow: '#6e5a42',
     iris: '#4e3220', glasses: null, style: 'fringe', mouth: 'smile',
   },
+  {
+    // brown hair with a long fringe swept to one side, freckles on the nose and cheeks, a sly closed smile
+    id: 'rafael', name: 'Rafael', nameHe: 'רפאל',
+    skin: '#f0c4a2', skinShade: '#dda080', hair: '#5e4128', hairHi: '#8e6a46', brow: '#4a3420',
+    iris: '#4a2e1c', glasses: null, style: 'side', mouth: 'smirk', freckles: '#c98a62',
+  },
 ];
 export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES[0];
 
@@ -86,7 +92,7 @@ export const TEMPLATE_LIST = Object.values(TEMPLATES);
 export function heroFromProfile(pr, tp) {
   return {
     role: 'CB', pos: 'Centre back', name: pr.name, nameHe: pr.nameHe, build: 'normal', custom: true,
-    skin: pr.skin, hair: pr.hair, style: pr.style === 'ponytail' ? 'pony' : pr.style,
+    skin: pr.skin, hair: pr.hair, style: pr.style === 'ponytail' ? 'pony' : pr.style, freckles: pr.freckles,
     acc: [...(pr.glasses ? ['glasses'] : []), ...tp.gameAcc],
     emblem: tp.gameEmblem,
   };
@@ -234,6 +240,12 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     }
     R.ellipse(0, hy - 0.78, 1.05, 0.38, HAIR);
   }
+  if (pr.style === 'side') { // one long fringe swept across the forehead, down to the eyebrow on one side
+    T(R, -1.08, hy - 0.62, 0.2, hy - 1.12, 1.02, hy - 0.36, HAIR, 0.1);
+    R.tri(-0.98, hy - 0.68, 0.15, hy - 1.02, 0.9, hy - 0.44, HAIR, 0.08); // no outline inside the hair
+    R.ellipse(-0.1, hy - 0.86, 0.95, 0.3, HAIR);
+    for (const [a, b, c, d] of [[-0.6, -0.88, 0.45, -0.6], [-0.2, -0.98, 0.78, -0.55], [-0.85, -0.74, 0.05, -0.56]]) R.line(a, hy + b, c, hy + d, 0.03, HAIR_HI);
+  }
   if (pr.style === 'long') { // centre parting and soft locks framing the face
     R.line(0, hy - 1.15, 0.04, hy - 0.7, 0.025, col(pr.skinShade));
     for (const s of [-1, 1]) {
@@ -250,7 +262,7 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     R.ellipse(-1.02, hy - 0.25, 0.14, 0.32, HAIR); // sideburns
     R.ellipse(1.02, hy - 0.25, 0.14, 0.32, HAIR);
   }
-  for (const [a, b, c, d] of [[-0.5, -1.0, -0.2, -1.3], [0.1, -1.05, 0.45, -1.4], [0.55, -0.95, 0.85, -1.2]]) R.line(a, hy + b + 0.2, c, hy + d + 0.2, 0.035, HAIR_HI);
+  if (pr.style !== 'side') for (const [a, b, c, d] of [[-0.5, -1.0, -0.2, -1.3], [0.1, -1.05, 0.45, -1.4], [0.55, -0.95, 0.85, -1.2]]) R.line(a, hy + b + 0.2, c, hy + d + 0.2, 0.035, HAIR_HI);
 
   // eyebrows (thick)
   for (const s of [-1, 1]) R.line(s * 0.7, hy - 0.42, s * 0.18, hy - 0.47, pr.girl ? 0.045 : 0.065, col(pr.brow));
@@ -284,6 +296,10 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
   R.ellipse(-0.04, hy + 0.25, 0.04, 0.03, col('#ffffff', 0.5));
   R.ellipse(-0.62, hy + 0.38, 0.2, 0.1, TP.blush);
   R.ellipse(0.62, hy + 0.38, 0.2, 0.1, TP.blush);
+  if (pr.freckles) { // freckles across the nose and cheeks
+    const fc = col(pr.freckles);
+    for (const [x, y] of [[-0.62, 0.22], [-0.48, 0.3], [-0.7, 0.34], [-0.55, 0.42], [-0.2, 0.2], [0.2, 0.2], [0.62, 0.22], [0.48, 0.3], [0.7, 0.34], [0.55, 0.42], [-0.08, 0.14], [0.08, 0.14]]) R.ellipse(x, hy + y, 0.035, 0.03, fc);
+  }
   if (pr.mouth === 'grin') {
     // big open smile with a gap where a front tooth fell out
     // a big happy crescent smile: teeth showing, with the gap of a missing front tooth
