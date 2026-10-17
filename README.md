@@ -41,6 +41,7 @@ js/game.js          The match: players, ball physics, rules, referees, AI (no DO
 js/court.js         Court geometry in metres (goal area "D", 9 m line, 7 m mark…)
 js/render.js        Renderer: WebGL 2 (instanced SDF shapes, one draw call) with a Canvas 2D fallback
 js/toon.js          Cartoon art: hero squads, court, goals, referees, ball (built from 5 primitives)
+js/clubs.js          Kids' league clubs: names, shirt colours, away kits
 js/tv.js            TV camera view (like FIFA): perspective court, stands, LED boards, 3D goals
 js/input.js         Keyboard + multi-touch joystick and buttons
 js/audio.js         Synthesised music loop, whistle, ball and crowd sounds (WebAudio, no audio files)
@@ -69,10 +70,11 @@ In the TV view the renderer draws the court as one texture in perspective (a ful
 
 ## Heroes and powers
 
-**Play** opens three steps:
+**Play** opens four steps:
 1. Pick a team: Eitan's, Emma's or Eyal's team. The kid is drawn from a photo and plays centre back.
 2. Pick a special power.
 3. Pick the players: tap a position, then the hero who plays there. You can choose the other two kids (so all three can play together) or any cartoon hero from either squad. Your kid always stays centre back with the power. Picking someone who already plays swaps the two places. The line-up is remembered, and the computer's team swaps out any hero you took, so nobody plays for both sides.
+4. Pick the clubs: play as the kid's team or as a club from the kids' league (`js/clubs.js`), and pick the opponent (the Vipers or a club). Clubs have names and shirt colours only, no badges. When both shirts look alike, the opponent wears its white away kit.
 
 The match then starts. 40% of the time the computer's team is led by one of the other kids. Otherwise it is led by Venom. Either way, the computer's hero gets a random power and uses it near your goal.
 
@@ -104,6 +106,7 @@ The match then starts. 40% of the time the computer's team is led by one of the 
 - `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. It covers:
   - the pick flow (team, power, players), Hebrew labels and fonts, and the music level;
   - picking the players: all three kids together, swapping, no hero on both teams, remembering the line-up;
+  - the clubs: playing as a club against a club, different shirts, the scoreboard names;
   - the joystick: never moves by itself, always stops on release, two thumbs, cancelled touches, a stale touch replaced by a new one;
   - double-tap zoom;
   - every power through the real POWER button, including armed powers;

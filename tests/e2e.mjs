@@ -84,7 +84,9 @@ async function startMatch(P, team = 0, power = 0) {
   await wait(page, 300);
   await t.tapEl('#pickPowers .pick-card', power);
   await wait(page, 300);
-  await t.tapEl('#lineupGo');
+  await t.tapEl('#lineupGo'); // players
+  await wait(page, 300);
+  await t.tapEl('#lineupGo'); // clubs
   await page.waitForFunction(() => handball.mode === 'play' && handball.game.state === 'play', null, { timeout: 15000 });
 }
 
@@ -126,6 +128,10 @@ await run('flow', async () => {
   await wait(page, 400);
   check(await page.isVisible('#pickLineup') && (await page.textContent('#pickStep')).includes('3'), 'then step 3: pick the players');
   await page.screenshot({ path: `${out}/03b-pick-players.png` });
+  await t.tapEl('#lineupGo');
+  await wait(page, 400);
+  check(await page.isVisible('#pickMatch') && (await page.textContent('#pickStep')).includes('4'), 'then step 4: our club and the opponent');
+  await page.screenshot({ path: `${out}/03c-pick-clubs.png` });
   await t.tapEl('#lineupGo');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 5000 });
   await wait(page, 1500);
@@ -349,6 +355,7 @@ await run('lineup', async () => {
   await t.tapEl('#luSlots .lu-card', 3); await t.tapEl('#luPool .lu-card:has-text("זיפ")');
   check((await slots())[3] === 'איתן', 'your kid stays in the middle');
   await page.screenshot({ path: `${out}/38-lineup.png` });
+  await t.tapEl('#lineupGo'); await wait(page, 300);
   await t.tapEl('#lineupGo');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
   const teams = await G(page, () => handball.game.teams.map((tm) => tm.players.map((p) => p.hero.nameHe)));
@@ -368,6 +375,39 @@ await run('lineup', async () => {
   const s3 = await slots();
   check(s3[3] === 'אמה' && s3.filter((n) => n === 'אמה').length === 1 && new Set(s3).size === 7, 'switching kids keeps the line-up valid', s3.join(' | '));
   check(errors.length === 0, 'no errors in the line-up step', errors.join(' | '));
+  await page.close();
+});
+
+// ---------------------------------------------------------------- kids' league clubs
+await run('clubs', async () => {
+  const P = await phone();
+  const { page, t, errors } = P;
+  await page.goto(url);
+  await page.evaluate(() => localStorage.clear());
+  await page.reload(); await wait(page, 1200);
+  await t.tapEl('#play'); await wait(page, 300);
+  await t.tapEl('#pickTeams .pick-card', 0); await wait(page, 300);
+  await t.tapEl('#pickPowers .pick-card', 0); await wait(page, 300);
+  await t.tapEl('#lineupGo'); await wait(page, 400);
+  const chips = await page.locator('#myClubs .club-chip').allTextContents();
+  check(chips.length >= 4 && chips[0].includes('איתן'), 'our team: the kid\'s team or a club', chips.join(' | '));
+  const rivals = await page.locator('#rivalCards .lu-card:visible b').allTextContents();
+  check(rivals.length >= 4, 'opponents from the kids\' league', rivals.join(' | '));
+  // play as the first club against the second
+  await t.tapEl('#myClubs .club-chip', 1);
+  const mine = (await page.locator('#myClubs .club-chip').nth(1).textContent()).trim();
+  check(!(await page.locator('#rivalCards .lu-card:visible b').allTextContents()).includes(mine), 'a club can\'t play itself');
+  await t.tapEl('#rivalCards .lu-card:visible', 1);
+  const theirs = (await page.locator('#rivalCards .lu-card.sel b').textContent()).trim();
+  await page.screenshot({ path: `${out}/39-clubs.png` });
+  await t.tapEl('#lineupGo');
+  await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
+  const k = await G(page, () => handball.game.teams.map((tm) => ({ he: tm.kit.he, shirt: tm.kit.shirt })));
+  check(k[0].he === mine && k[1].he === theirs, 'the match uses both clubs', `${k[0].he} - ${k[1].he}`);
+  check(k[0].shirt !== k[1].shirt, 'the two teams wear different shirts', `${k[0].shirt} / ${k[1].shirt}`);
+  const board = await G(page, () => [...document.querySelectorAll('.board .abbr')].map((e) => e.textContent).join(' | '));
+  check(!/צרעות|צפעונים/.test(board), 'the scoreboard shows the clubs', board);
+  check(errors.length === 0, 'no errors with clubs', errors.join(' | '));
   await page.close();
 });
 
@@ -423,7 +463,9 @@ await run('match', async () => {
   await page.evaluate(() => { localStorage.setItem('handball7', JSON.stringify({ half: '180', music: false })); });
   await page.reload();
   await page.clock.runFor(1500);
-  await page.evaluate(() => { document.querySelector('#play').click(); document.querySelector('#pickTeams .pick-card').click(); document.querySelector('#pickPowers .pick-card').click(); });
+  await page.evaluate(() => { document.querySelector('#play').click(); document.querySelector('#pickTeams .pick-card').click(); document.querySelector('#pickPowers .pick-card').click(); document.querySelector('#lineupGo').click(); document.querySelector('#lineupGo').click(); });
+  await page.clock.runFor(500);
+  check(await page.evaluate(() => handball.mode === 'play'), 'the match starts after the three steps');
   for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
   check(/מחצית/.test(await page.textContent('#brEyebrow')), 'half-time screen');
   await page.evaluate(() => document.querySelector('#brNext').click());

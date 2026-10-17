@@ -9,6 +9,7 @@ import { Sound } from './audio.js';
 import { POWERS_ENABLED, ENERGY_MAX } from './powers.js';
 import { PROFILES, TEMPLATES, profileById, drawPortrait, kidHero } from './heroes.js';
 import { TVCam, makeFloor, renderTV } from './tv.js';
+import { CLUBS, clubById, matchKits } from './clubs.js';
 
 const $ = (s) => document.querySelector(s);
 const STEP = 1 / 60;
@@ -93,6 +94,52 @@ function resize() {
 // Each card has a small canvas drawn with the 2D renderer (keeps WebGL contexts to one).
 const pick = { step: 'team', teams: [], powers: [], slots: [], pool: [], sel: 'GK', dirty: true };
 
+// ------------------------------------------------------------------ clubs (step 4)
+// The two teams' names and colours: the kid's team or a club, against the Vipers or a club.
+function kits() {
+  if (settings.myClub && settings.myClub === settings.rivalClub) settings.rivalClub = '';
+  return matchKits(KITS, clubById(settings.myClub), clubById(settings.rivalClub));
+}
+function buildMatchPick() {
+  const mine = [{ id: '', he: null, kit: KITS[0] }, ...CLUBS];
+  pick.myClubs = mine.map((c) => {
+    const b = document.createElement('button');
+    b.className = 'club-chip';
+    b.innerHTML = `<i style="background:${c.kit.shirt}"></i><span></span>`;
+    b.querySelector('span').textContent = c.he || '';
+    b.addEventListener('click', () => { settings.myClub = c.id; save(); syncMatchPick(); });
+    $('#myClubs').appendChild(b);
+    return { c, el: b };
+  });
+  const rivals = [{ id: '', he: KITS[1].he }, ...CLUBS];
+  pick.rivals = rivals.map((c) => ({ c, ...miniCard($('#rivalCards'), () => { settings.rivalClub = c.id; save(); syncMatchPick(); }) }));
+}
+function syncMatchPick() {
+  const me = profileById(settings.hero);
+  kits();
+  for (const m of pick.myClubs) {
+    if (!m.c.id) m.el.querySelector('span').textContent = `הנבחרת של ${me.nameHe}`;
+    m.el.classList.toggle('on', m.c.id === (settings.myClub || ''));
+  }
+  for (const r of pick.rivals) {
+    r.el.hidden = !!r.c.id && r.c.id === settings.myClub;
+    r.el.querySelector('b').textContent = r.c.he;
+    r.el.querySelector('small').textContent = r.c.id ? 'מליגת הילדים' : 'הקבוצה המצוירת';
+    r.el.classList.toggle('sel', r.c.id === (settings.rivalClub || ''));
+  }
+  pick.dirty = true;
+}
+function renderMatchPick() {
+  if (!pick.dirty) return;
+  pick.dirty = false;
+  const mine = clubById(settings.myClub);
+  for (const r of pick.rivals) {
+    if (r.el.hidden) continue;
+    const k = matchKits(KITS, mine, clubById(r.c.id))[1];
+    drawMini(r.r, T.SQUADS[1].heroes[2], false, k);
+  }
+}
+
 // ------------------------------------------------------------------ line-up (step 3)
 const ROLES = ['GK', 'LW', 'LB', 'CB', 'RB', 'RW', 'PV'];
 const POS_HE = { GK: 'שוער', LW: 'כנף שמאל', LB: 'אחורי שמאל', CB: 'מרכז', RB: 'אחורי ימין', RW: 'כנף ימין', PV: 'קו' };
@@ -138,7 +185,7 @@ function buildLineup() {
   }) }));
   pick.pool = POOL.map((x) => ({ x, ...miniCard($('#luPool'), () => { if (pick.sel) setLineup(pick.sel, x.key); }) }));
   pick.pool.forEach((c) => { c.el.querySelector('b').textContent = c.x.nameHe; c.el.classList.toggle('kid', !!c.x.kid); });
-  $('#lineupGo').addEventListener('click', startMatch);
+  $('#lineupGo').addEventListener('click', () => (pick.step === 'lineup' ? showPick('match') : startMatch()));
 }
 function syncLineup() {
   const lu = lineup(), me = profileById(settings.hero);
@@ -157,10 +204,10 @@ function syncLineup() {
   }
   $('#luHint').textContent = pick.sel ? `בוחרים ${POS_HE[pick.sel]}: הקישו על שחקן מהרשימה` : `${me.nameHe} תמיד במרכז, עם הכוח. בחרו עמדה אחרת`;
 }
-function drawMini(r, hero, gk) {
+function drawMini(r, hero, gk, kit = kits()[0]) {
   const cv = r.canvas;
   r.begin(0, -0.62, cv.height / 1.75, T.TP.clear);
-  T.drawHero(r, hero, KITS[0], { x: 0, y: 0.08, z: 0, face: Math.PI / 2, phase: 0, vx: 0, vy: 0, gk }, { t: 0 });
+  T.drawHero(r, hero, kit, { x: 0, y: 0.08, z: 0, face: Math.PI / 2, phase: 0, vx: 0, vy: 0, gk }, { t: 0 });
   r.end();
 }
 function renderLineup() {
@@ -191,8 +238,10 @@ function buildPick() {
   pick.powers = Object.values(TEMPLATES).map((tp) => ({ tp, ...card($('#pickPowers'), '', tp.about, () => {
     settings.power = tp.key; save(); showPick('lineup');
   }) }));
-  $('#pickBack').addEventListener('click', () => (pick.step === 'lineup' ? showPick('power') : pick.step === 'power' ? showPick('team') : toMenu()));
+  const prev = { match: 'lineup', lineup: 'power', power: 'team' };
+  $('#pickBack').addEventListener('click', () => (prev[pick.step] ? showPick(prev[pick.step]) : toMenu()));
   buildLineup();
+  buildMatchPick();
 }
 function showPick(step) {
   pick.step = step;
@@ -200,9 +249,11 @@ function showPick(step) {
   $('#pickTeams').hidden = step !== 'team';
   $('#pickPowers').hidden = step !== 'power';
   $('#pickLineup').hidden = step !== 'lineup';
-  $('#lineupGo').hidden = step !== 'lineup';
-  $('#pickStep').textContent = `שלב ${{ team: 1, power: 2, lineup: 3 }[step]} מתוך 3`;
-  $('#pickTitle').textContent = step === 'team' ? 'בחרו נבחרת' : step === 'power' ? `בחרו כוח מיוחד ל${pr.nameHe}` : `בחרו שחקנים לנבחרת של ${pr.nameHe}`;
+  $('#pickMatch').hidden = step !== 'match';
+  $('#lineupGo').hidden = step !== 'lineup' && step !== 'match';
+  $('#lineupGo').textContent = step === 'match' ? 'יאללה, משחקים!' : 'הבא';
+  $('#pickStep').textContent = `שלב ${{ team: 1, power: 2, lineup: 3, match: 4 }[step]} מתוך 4`;
+  $('#pickTitle').textContent = { team: 'בחרו נבחרת', power: `בחרו כוח מיוחד ל${pr.nameHe}`, lineup: `בחרו שחקנים לנבחרת של ${pr.nameHe}`, match: 'בחרו קבוצות' }[step];
   pick.teams.forEach((c) => c.el.classList.toggle('last', c.pr.id === settings.hero));
   pick.powers.forEach((c) => {
     c.el.querySelector('b').textContent = c.tp.title(pr.nameHe).replace('!', '');
@@ -215,13 +266,15 @@ function showPick(step) {
     syncLineup();
     pick.dirty = true;
   }
-  for (const c of step === 'team' ? pick.teams : step === 'power' ? pick.powers : [...pick.slots, ...pick.pool]) {
+  if (step === 'match') syncMatchPick();
+  for (const c of { team: pick.teams, power: pick.powers, lineup: [...pick.slots, ...pick.pool], match: pick.rivals }[step]) {
     const cv = c.r.canvas;
     cv.width = Math.round(cv.clientWidth * dpr) || 120; cv.height = Math.round(cv.clientHeight * dpr) || 120;
   }
 }
 function renderPick() {
   if (pick.step === 'lineup') return renderLineup();
+  if (pick.step === 'match') return renderMatchPick();
   const list = pick.step === 'team' ? pick.teams : pick.powers;
   for (const c of list) {
     const r = c.r, cv = r.canvas;
@@ -249,9 +302,12 @@ function startMatch() {
     // sometimes the computer's team is led by one of the other kids (one who isn't playing for you)
     rivalHero: Math.random() < 0.4 ? otherKid(settings.hero, Object.values(lu)) : null,
     lineup: Object.fromEntries(Object.entries(lu).map(([r, k]) => [r, poolByKey(k).hero])),
+    kits: kits(),
   });
   $('.board .home .abbr').textContent = game.teams[0].kit.abbr;
   $('.board .away .abbr').textContent = game.teams[1].kit.abbr;
+  $('.board .home .kit').style.background = game.teams[0].kit.shirt;
+  $('.board .away .kit').style.background = game.teams[1].kit.shirt;
   game.input = input.state;
   setMode('play');
   requestWakeLock();

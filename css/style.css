@@ -249,6 +249,16 @@ body:not(.touch) #stick { display: none; }
   .pick-card b { font-size: 19px; }
 }
 @media (prefers-reduced-motion: reduce) { .pick-card { transition: none; } }
+/* step 4: our club and the opponent (kids' league) */
+.match-pick { display: grid; gap: 8px; padding-inline: 6px; }
+.club-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.club-label { margin: 0; font: 900 17px/1.2 var(--display); color: var(--muted); }
+.club-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.club-chip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 2px solid var(--outline); border-radius: 999px; background: rgba(19, 32, 47, 0.92); font-weight: 800; font-size: 14px; }
+.club-chip i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.7); }
+.club-chip.on { border-color: var(--hornet); background: #24324a; box-shadow: 0 0 0 2px rgba(255, 210, 63, 0.4); }
+#rivalCards .lu-card { width: 104px; }
+#rivalCards .lu-card b { white-space: normal; text-align: center; font-size: 14px; }
 /* step 3: pick the players */
 #lineupGo { margin-inline-start: auto; padding: 10px 20px; font-size: 20px; }
 .lineup { display: grid; gap: 8px; }
