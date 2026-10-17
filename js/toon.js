@@ -157,7 +157,8 @@ export function drawHero(R, h, kit, p, o = {}) {
   // body
   B(R, X, bodyY, side ? bw * 0.85 : bw, 0.15 * sc, shirt, 0.09);
   R.rect(X, hipY + 0.01, (side ? bw * 0.85 : bw) - 0.005, 0.022, trim); // belt
-  if (!back) drawEmblem(R, h.emblem, side ? X + dirX * 0.03 : X, bodyY - 0.02, trim, kit);
+  if (!back && kit.badge) drawFlag(R, kit.badge, side ? X + dirX * 0.03 : X, bodyY - 0.02, 0.075);
+  else if (!back) drawEmblem(R, h.emblem, side ? X + dirX * 0.03 : X, bodyY - 0.02, trim, kit);
   if (back) {
     if (has('cape')) {
       const wb = bw + 0.1 + flutter * 0.5, by = Y - 0.1;
@@ -379,6 +380,52 @@ function drawHairBack(R, h, X, headY, HR, hair, skin, t) {
   if (s === 'pony') L(R, X, headY, X + Math.sin(t * 6) * 0.03, headY + HR + 0.12, 0.05, hair);
   if (s === 'long') E(R, X, headY + 0.14, HR + 0.03, HR * 0.95, hair);
   if (s === 'pigtails') { E(R, X - HR - 0.04, headY + 0.04, 0.08, 0.09, hair); E(R, X + HR + 0.04, headY + 0.04, 0.08, 0.09, hair); }
+}
+
+// National flags (for national teams' shirts and cards). w = half width; the flag is w x 0.7w.
+const FLAG = Object.fromEntries(Object.entries({
+  white: '#ffffff', blue: '#0038b8', red: '#d52b1e', yellow: '#ffc400', black: '#1e1e1e', gold: '#ffce00',
+  green: '#009c3b', navy: '#00205b', sky: '#02529c', bred: '#ce1126', dk: '#c8102e', sb: '#006aa7', sy: '#fecc00',
+}).map(([k, v]) => [k, col(v)]));
+export function drawFlag(R, kind, x, y, w) {
+  const h = w * 0.7, F = FLAG;
+  const bandsH = (cs) => cs.forEach((c, i) => R.rect(x, y - h + (h * 2 * (i + 0.5)) / cs.length, w, h / cs.length, c));
+  const bandsV = (cs) => cs.forEach((c, i) => R.rect(x - w + (w * 2 * (i + 0.5)) / cs.length, y, w / cs.length, h, c));
+  const cross = (c, t, cx = -0.25) => { R.rect(x, y, w, t * h, c); R.rect(x + cx * w, y, t * h, h, c); };
+  R.rect(x, y, w + 0.012, h + 0.012, TP.ink, 0, 0.01);
+  switch (kind) {
+    case 'israel': {
+      R.rect(x, y, w, h, F.white);
+      for (const s of [-1, 1]) R.rect(x, y + s * h * 0.68, w, h * 0.12, F.blue);
+      const r = h * 0.42, lw = Math.max(0.004, w * 0.045);
+      for (const a0 of [-Math.PI / 2, Math.PI / 2]) { // two triangles: the Star of David
+        const p = [0, 1, 2].map((i) => [x + Math.cos(a0 + (i * 2 * Math.PI) / 3) * r, y + Math.sin(a0 + (i * 2 * Math.PI) / 3) * r]);
+        for (let i = 0; i < 3; i++) R.line(p[i][0], p[i][1], p[(i + 1) % 3][0], p[(i + 1) % 3][1], lw, F.blue);
+      }
+      break;
+    }
+    case 'spain': R.rect(x, y, w, h, F.red); R.rect(x, y, w, h * 0.5, F.yellow); break;
+    case 'france': bandsV([F.blue, F.white, F.red]); break;
+    case 'germany': bandsH([F.black, F.red, F.gold]); break;
+    case 'denmark': R.rect(x, y, w, h, F.dk); cross(F.white, 0.22); break;
+    case 'sweden': R.rect(x, y, w, h, F.sb); cross(F.sy, 0.22); break;
+    case 'norway': R.rect(x, y, w, h, F.dk); cross(F.white, 0.3); cross(F.navy, 0.14); break;
+    case 'iceland': R.rect(x, y, w, h, F.sky); cross(F.white, 0.3); cross(F.dk, 0.14); break;
+    case 'croatia': {
+      bandsH([F.red, F.white, F.blue]);
+      const q = h * 0.16; // the red-and-white chequered shield
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) R.rect(x + (i - 1) * q * 2, y + (j - 1) * q * 2 + h * 0.05, q, q, (i + j) % 2 ? F.white : F.red);
+      break;
+    }
+    case 'brazil': {
+      R.rect(x, y, w, h, F.green);
+      R.tri(x - w * 0.8, y, x, y - h * 0.8, x + w * 0.8, y, F.yellow); R.tri(x - w * 0.8, y, x, y + h * 0.8, x + w * 0.8, y, F.yellow);
+      R.ellipse(x, y, h * 0.38, h * 0.38, F.navy);
+      break;
+    }
+    case 'egypt': bandsH([F.bred, F.white, F.black]); R.ellipse(x, y, h * 0.16, h * 0.16, F.gold); break;
+    default: R.rect(x, y, w, h, F.white);
+  }
 }
 
 function drawEmblem(R, kind, x, y, c, kit) {

@@ -7,7 +7,7 @@ const kit = (shirt, trim, shorts, gk, gkTrim) => ({ shirt, trim, shorts, cape: t
 
 // group 'league': clubs from the kids' league; 'nation': national teams
 export const CLUBS = [
-  { id: 'nes-ziona', he: 'א.כ. נס ציונה', short: 'נס ציונה', kit: kit('#7b3fb5', '#ffd23f', '#2a1450', '#3ccf74', '#0e3b22') },
+  { id: 'nes-ziona', he: 'א.כ. נס ציונה', short: 'נס ציונה', kit: kit('#ff7a1a', '#ffffff', '#ffffff', '#3f8ee6', '#0c2257') }, // "the Oranges"
   { id: 'hapoel-rishon', he: 'הפועל ראשון לציון', short: 'הפועל ראשל"צ', kit: kit('#e23b3b', '#ffffff', '#ffffff', '#3ccf74', '#0e3b22') },
   { id: 'maccabi-rishon', he: 'מכבי ראשון לציון', short: 'מכבי ראשל"צ', kit: kit('#ffd23f', '#1d4fbf', '#1d4fbf', '#e8453c', '#4a0f0f') },
   { id: 'hapoel-ashdod', he: 'הפועל אשדוד', short: 'הפועל אשדוד', kit: kit('#c81e2a', '#161616', '#161616', '#3f8ee6', '#0c2257') },
@@ -28,7 +28,7 @@ export const NATIONS = [
   { id: 'brazil', he: 'ברזיל', short: 'ברזיל', kit: kit('#ffdf00', '#009c3b', '#002776', '#3f8ee6', '#0c2257') },
   { id: 'iceland', he: 'איסלנד', short: 'איסלנד', kit: kit('#02529c', '#dc1e35', '#02529c', '#ffd23f', '#4a3a00') },
   { id: 'egypt', he: 'מצרים', short: 'מצרים', kit: kit('#ce1126', '#1e1e1e', '#1e1e1e', '#3ccf74', '#0e3b22') },
-].map((c) => ({ ...c, group: 'nation' }));
+].map((c) => ({ ...c, group: 'nation', kit: { ...c.kit, badge: c.id } })); // national teams wear their flag
 
 export const ALL_TEAMS = [...CLUBS, ...NATIONS];
 export const clubById = (id) => ALL_TEAMS.find((c) => c.id === id) || null;

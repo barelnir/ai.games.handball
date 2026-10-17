@@ -146,6 +146,7 @@ function renderMatchPick() {
     if (r.el.hidden) continue;
     const k = matchKits(KITS, mine, clubById(r.c.id))[1];
     drawMini(r.r, T.SQUADS[1].heroes[2], false, k);
+    if (k.badge) T.drawFlag(r.r, k.badge, 0.42, -1.12, 0.2); // national teams: their flag on the card
   }
 }
 

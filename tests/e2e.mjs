@@ -421,7 +421,8 @@ await run('clubs', async () => {
   await page.screenshot({ path: `${out}/39b-nations.png` });
   await t.tapEl('#lineupGo');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
-  const k2 = await G(page, () => ({ teams: handball.game.teams.map((tm) => tm.kit.he), cb: handball.game.teams[0].players.find((p) => p.role === 'CB').hero.nameHe }));
+  const k2 = await G(page, () => ({ teams: handball.game.teams.map((tm) => tm.kit.he), badge: handball.game.teams[0].kit.badge, cb: handball.game.teams[0].players.find((p) => p.role === 'CB').hero.nameHe }));
+  check(k2.badge === 'israel', 'Israel wears the flag on the shirt', k2.badge);
   check(k2.teams[0] === 'ישראל' && k2.teams[1] === 'ספרד' && k2.cb === 'רפאל', 'Israel (with Rafael) against Spain', `${k2.teams.join(' - ')} · ${k2.cb}`);
   check(errors.length === 0, 'no errors with clubs', errors.join(' | '));
   await page.close();
