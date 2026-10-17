@@ -75,7 +75,7 @@ function blockPageZoom() {
   let lastTap = 0;
   document.addEventListener('touchend', (e) => {
     const now = Date.now();
-    if (now - lastTap < 350 && !e.target.closest('.seg, #menu button, .screen button')) e.preventDefault();
+    if (now - lastTap < 350 && !e.target.closest('.seg, #menu button, .screen button, .corner button')) e.preventDefault();
     lastTap = now;
   }, { passive: false });
 }

@@ -113,6 +113,8 @@ button:focus-visible { outline: 2px solid var(--hornet); outline-offset: 2px; }
 .banner.soft strong { font-size: clamp(22px, 4.5vw, 32px); border-width: 2px; }
 
 .corner { position: absolute; top: calc(var(--sat) + 8px); right: calc(var(--sar) + 10px); display: flex; gap: 6px; pointer-events: auto; }
+/* corner buttons answer quick repeated taps (no double-tap zoom on them) */
+.corner .ico { touch-action: manipulation; }
 .ico { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--outline); background: rgba(9, 15, 23, 0.75); font-size: 14px; display: grid; place-items: center; padding: 0; }
 .ico svg { width: 20px; height: 20px; }
 .ico.off { opacity: 0.45; }
