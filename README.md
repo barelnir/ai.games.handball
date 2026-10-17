@@ -50,6 +50,8 @@ js/heroes.js        Hero profiles (from photos), power templates, full-screen PO
 sw.js, manifest     PWA: install to the home screen, works offline
 tests/sim.mjs       Headless AI-vs-AI matches (`npm test`)
 tests/power.mjs     Eitan's power, end to end (`npm test`)
+tests/pass.mjs      The pass magnet (`npm test`)
+tests/lineup.mjs    Picking the players (`npm test`)
 tests/e2e.mjs       Playwright phone test of the real game (`npm run e2e`)
 ```
 
@@ -67,9 +69,10 @@ In the TV view the renderer draws the court as one texture in perspective (a ful
 
 ## Heroes and powers
 
-**Play** opens two steps:
+**Play** opens three steps:
 1. Pick a team: Eitan's, Emma's or Eyal's team. The kid is drawn from a photo and plays centre back.
 2. Pick a special power.
+3. Pick the players: tap a position, then the hero who plays there. You can choose the other two kids (so all three can play together) or any cartoon hero from either squad. Your kid always stays centre back with the power. Picking someone who already plays swaps the two places. The line-up is remembered, and the computer's team swaps out any hero you took, so nobody plays for both sides.
 
 The match then starts. 40% of the time the computer's team is led by one of the other kids. Otherwise it is led by Venom. Either way, the computer's hero gets a random power and uses it near your goal.
 
@@ -97,9 +100,10 @@ The match then starts. 40% of the time the computer's team is led by one of the 
 
 ## Tests
 
-- `npm test`: headless matches (`tests/sim.mjs`), every power end to end (`tests/power.mjs`) and the pass magnet (`tests/pass.mjs`).
+- `npm test`: headless matches (`tests/sim.mjs`), every power end to end (`tests/power.mjs`), the pass magnet (`tests/pass.mjs`) and the line-up (`tests/lineup.mjs`).
 - `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. It covers:
-  - the pick flow, Hebrew labels and fonts, and the music level;
+  - the pick flow (team, power, players), Hebrew labels and fonts, and the music level;
+  - picking the players: all three kids together, swapping, no hero on both teams, remembering the line-up;
   - the joystick: never moves by itself, always stops on release, two thumbs, cancelled touches, a stale touch replaced by a new one;
   - double-tap zoom;
   - every power through the real POWER button, including armed powers;

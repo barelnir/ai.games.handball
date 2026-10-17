@@ -91,6 +91,11 @@ export function heroFromProfile(pr, tp) {
     emblem: tp.gameEmblem,
   };
 }
+// One of the kids as a plain teammate (no power costume), for picking the line-up.
+export function kidHero(pr) {
+  return { ...heroFromProfile(pr, { gameAcc: [], gameEmblem: 'star' }), kid: pr.id };
+}
+
 // The template's costume as an in-game kit (used by the preview pages).
 export function templateKit(tp) {
   return { shirt: tp.shirt, trim: tp.trim, shorts: tp.trim2 || '#1b2a4a', cape: tp.cape || '#1b2a4a', shoe: '#ffffff', gk: tp.shirt, gkTrim: tp.trim, mask: '#000', glow: tp.aura };

@@ -249,6 +249,32 @@ body:not(.touch) #stick { display: none; }
   .pick-card b { font-size: 19px; }
 }
 @media (prefers-reduced-motion: reduce) { .pick-card { transition: none; } }
+/* step 3: pick the players */
+#lineupGo { margin-inline-start: auto; padding: 10px 20px; font-size: 20px; }
+.lineup { display: grid; gap: 8px; }
+.lu-slots, .lu-pool { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; touch-action: pan-x; }
+.lu-slots { justify-content: safe center; }
+.lu-card {
+  flex: none; width: 92px; display: grid; justify-items: center; gap: 1px; padding: 6px 4px;
+  background: rgba(19, 32, 47, 0.92); border: 3px solid var(--outline); border-radius: 14px; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+}
+.lu-card canvas { width: 64px; height: 64px; border-radius: 50%; background: #101833; display: block; }
+.lu-card b { font: 900 15px/1.15 var(--display); color: var(--hornet); white-space: nowrap; }
+.lu-card small { font-size: 11px; line-height: 1.2; color: var(--muted); white-space: nowrap; }
+.lu-card.sel { border-color: var(--hornet); box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.4), 0 4px 0 rgba(0, 0, 0, 0.35); }
+.lu-card.lock { cursor: default; }
+.lu-card.lock small { color: #7fe7ff; }
+.lu-pool .lu-card { width: 78px; }
+.lu-pool .lu-card canvas { width: 54px; height: 54px; }
+.lu-pool .lu-card.used small { color: var(--hornet); }
+.lu-pool .lu-card.kid b { color: #7fe7ff; }
+.lu-hint { margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
+@media (max-height: 430px) {
+  .lu-card canvas { width: 54px; height: 54px; }
+  .lu-pool .lu-card canvas { width: 46px; height: 46px; }
+  .lu-card { width: 84px; padding: 4px; }
+  .lu-pool .lu-card { width: 72px; }
+}
 .menu-panel { padding-inline-start: clamp(0px, 4vw, 48px); }
 
 .eyebrow { margin: 0 0 4px; color: var(--hornet); font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }

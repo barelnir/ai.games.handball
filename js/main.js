@@ -1,13 +1,13 @@
 // Boot, game loop, camera, HUD and menus.
 
-import { Game } from './game.js';
+import { Game, KITS } from './game.js';
 import { createRenderer } from './render.js';
 import { W, H, CY, POST_HI, Z2Y } from './court.js';
 import * as T from './toon.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { POWERS_ENABLED, ENERGY_MAX } from './powers.js';
-import { PROFILES, TEMPLATES, profileById, drawPortrait } from './heroes.js';
+import { PROFILES, TEMPLATES, profileById, drawPortrait, kidHero } from './heroes.js';
 import { TVCam, makeFloor, renderTV } from './tv.js';
 
 const $ = (s) => document.querySelector(s);
@@ -91,7 +91,88 @@ function resize() {
 
 // ------------------------------------------------------------------ pick a team, then a power
 // Each card has a small canvas drawn with the 2D renderer (keeps WebGL contexts to one).
-const pick = { step: 'team', teams: [], powers: [] };
+const pick = { step: 'team', teams: [], powers: [], slots: [], pool: [], sel: 'GK', dirty: true };
+
+// ------------------------------------------------------------------ line-up (step 3)
+const ROLES = ['GK', 'LW', 'LB', 'CB', 'RB', 'RW', 'PV'];
+const POS_HE = { GK: 'שוער', LW: 'כנף שמאל', LB: 'אחורי שמאל', CB: 'מרכז', RB: 'אחורי ימין', RW: 'כנף ימין', PV: 'קו' };
+const DEFAULT_LINEUP = { GK: 'h:Hive', LW: 'h:Zip', LB: 'h:Stinger', RB: 'h:Buzz', RW: 'h:Dash', PV: 'h:Honey Tank' };
+// everyone who can play for you: the other kids and the cartoon heroes of both squads
+const POOL = [
+  ...PROFILES.map((pr) => ({ key: 'kid:' + pr.id, kid: pr.id, hero: kidHero(pr), nameHe: pr.nameHe })),
+  ...T.SQUADS.flatMap((sq, i) => sq.heroes.filter((h) => !(i === 0 && h.role === 'CB')).map((h) => ({ key: 'h:' + h.name, hero: h, nameHe: h.nameHe }))),
+];
+const poolByKey = (k) => POOL.find((x) => x.key === k);
+// The saved line-up, cleaned up: known heroes only, nobody twice, and your own kid isn't in it.
+function lineup() {
+  const out = {}, used = new Set(['kid:' + settings.hero]);
+  const saved = settings.lineup || {};
+  for (const r of ROLES) {
+    if (r === 'CB') continue;
+    let k = saved[r];
+    if (!poolByKey(k) || used.has(k)) k = DEFAULT_LINEUP[r];
+    if (used.has(k)) k = POOL.find((x) => !used.has(x.key) && !x.kid).key;
+    out[r] = k; used.add(k);
+  }
+  return out;
+}
+function setLineup(role, key) {
+  const lu = lineup();
+  const other = ROLES.find((r) => r !== 'CB' && lu[r] === key);
+  if (other) lu[other] = lu[role]; // already playing elsewhere: swap the two
+  lu[role] = key;
+  settings.lineup = lu; save();
+  pick.dirty = true; syncLineup();
+}
+function miniCard(parent, onPick) {
+  const b = document.createElement('button');
+  b.className = 'lu-card';
+  b.innerHTML = '<canvas aria-hidden="true"></canvas><b></b><small></small>';
+  b.addEventListener('click', onPick);
+  parent.appendChild(b);
+  return { el: b, r: createRenderer(b.querySelector('canvas'), { preferGL: false }) };
+}
+function buildLineup() {
+  pick.slots = ROLES.map((role) => ({ role, ...miniCard($('#luSlots'), () => {
+    pick.sel = role === 'CB' ? null : role; pick.dirty = true; syncLineup();
+  }) }));
+  pick.pool = POOL.map((x) => ({ x, ...miniCard($('#luPool'), () => { if (pick.sel) setLineup(pick.sel, x.key); }) }));
+  pick.pool.forEach((c) => { c.el.querySelector('b').textContent = c.x.nameHe; c.el.classList.toggle('kid', !!c.x.kid); });
+  $('#lineupGo').addEventListener('click', startMatch);
+}
+function syncLineup() {
+  const lu = lineup(), me = profileById(settings.hero);
+  for (const s of pick.slots) {
+    const x = s.role === 'CB' ? null : poolByKey(lu[s.role]);
+    s.el.querySelector('b').textContent = x ? x.nameHe : me.nameHe;
+    s.el.querySelector('small').textContent = s.role === 'CB' ? 'מרכז · עם הכוח' : POS_HE[s.role];
+    s.el.classList.toggle('sel', s.role === pick.sel);
+    s.el.classList.toggle('lock', s.role === 'CB');
+  }
+  const where = Object.fromEntries(Object.entries(lu).map(([r, k]) => [k, r]));
+  for (const c of pick.pool) {
+    c.el.hidden = c.x.kid === settings.hero;
+    c.el.classList.toggle('used', !!where[c.x.key]);
+    c.el.querySelector('small').textContent = where[c.x.key] ? POS_HE[where[c.x.key]] : (c.x.kid ? 'מהמשפחה' : 'בחוץ');
+  }
+  $('#luHint').textContent = pick.sel ? `בוחרים ${POS_HE[pick.sel]}: הקישו על שחקן מהרשימה` : `${me.nameHe} תמיד במרכז, עם הכוח. בחרו עמדה אחרת`;
+}
+function drawMini(r, hero, gk) {
+  const cv = r.canvas;
+  r.begin(0, -0.62, cv.height / 1.75, T.TP.clear);
+  T.drawHero(r, hero, KITS[0], { x: 0, y: 0.08, z: 0, face: Math.PI / 2, phase: 0, vx: 0, vy: 0, gk }, { t: 0 });
+  r.end();
+}
+function renderLineup() {
+  if (!pick.dirty) return;
+  pick.dirty = false;
+  const lu = lineup(), me = profileById(settings.hero), tp = TEMPLATES[settings.power] || TEMPLATES.lightning;
+  for (const s of pick.slots) {
+    const hero = s.role === 'CB' ? { ...kidHero(me), acc: [...kidHero(me).acc, ...tp.gameAcc], emblem: tp.gameEmblem } : poolByKey(lu[s.role]).hero;
+    drawMini(s.r, hero, s.role === 'GK');
+  }
+  for (const c of pick.pool) if (!c.el.hidden) drawMini(c.r, c.x.hero, pick.sel === 'GK');
+}
 function card(parent, title, sub, onPick) {
   const b = document.createElement('button');
   b.className = 'pick-card';
@@ -108,17 +189,20 @@ function buildPick() {
   }) }));
   pick.teams.forEach((c) => { if (c.pr.girl) c.el.querySelector('small').textContent = `${c.pr.nameHe} היא הגיבורה`; });
   pick.powers = Object.values(TEMPLATES).map((tp) => ({ tp, ...card($('#pickPowers'), '', tp.about, () => {
-    settings.power = tp.key; save(); startMatch();
+    settings.power = tp.key; save(); showPick('lineup');
   }) }));
-  $('#pickBack').addEventListener('click', () => (pick.step === 'power' ? showPick('team') : toMenu()));
+  $('#pickBack').addEventListener('click', () => (pick.step === 'lineup' ? showPick('power') : pick.step === 'power' ? showPick('team') : toMenu()));
+  buildLineup();
 }
 function showPick(step) {
   pick.step = step;
   const pr = profileById(settings.hero);
   $('#pickTeams').hidden = step !== 'team';
   $('#pickPowers').hidden = step !== 'power';
-  $('#pickStep').textContent = step === 'team' ? 'שלב 1 מתוך 2' : 'שלב 2 מתוך 2';
-  $('#pickTitle').textContent = step === 'team' ? 'בחרו נבחרת' : `בחרו כוח מיוחד ל${pr.nameHe}`;
+  $('#pickLineup').hidden = step !== 'lineup';
+  $('#lineupGo').hidden = step !== 'lineup';
+  $('#pickStep').textContent = `שלב ${{ team: 1, power: 2, lineup: 3 }[step]} מתוך 3`;
+  $('#pickTitle').textContent = step === 'team' ? 'בחרו נבחרת' : step === 'power' ? `בחרו כוח מיוחד ל${pr.nameHe}` : `בחרו שחקנים לנבחרת של ${pr.nameHe}`;
   pick.teams.forEach((c) => c.el.classList.toggle('last', c.pr.id === settings.hero));
   pick.powers.forEach((c) => {
     c.el.querySelector('b').textContent = c.tp.title(pr.nameHe).replace('!', '');
@@ -126,12 +210,18 @@ function showPick(step) {
   });
   if (mode !== 'pick') setMode('pick');
   const dpr = pixelRatio();
-  for (const c of step === 'team' ? pick.teams : pick.powers) {
+  if (step === 'lineup') {
+    if (!pick.sel) pick.sel = 'GK';
+    syncLineup();
+    pick.dirty = true;
+  }
+  for (const c of step === 'team' ? pick.teams : step === 'power' ? pick.powers : [...pick.slots, ...pick.pool]) {
     const cv = c.r.canvas;
-    cv.width = Math.round(cv.clientWidth * dpr) || 300; cv.height = Math.round(cv.clientHeight * dpr) || 300;
+    cv.width = Math.round(cv.clientWidth * dpr) || 120; cv.height = Math.round(cv.clientHeight * dpr) || 120;
   }
 }
 function renderPick() {
+  if (pick.step === 'lineup') return renderLineup();
   const list = pick.step === 'team' ? pick.teams : pick.powers;
   for (const c of list) {
     const r = c.r, cv = r.canvas;
@@ -148,6 +238,7 @@ function startDemo() {
 
 function startMatch() {
   sound.unlock();
+  const lu = lineup();
   game = new Game({
     human: 0,
     halfLen: +settings.half,
@@ -155,8 +246,9 @@ function startMatch() {
     rules: settings.rules,
     hero: settings.hero,
     power: settings.power,
-    // sometimes the computer's team is led by one of the other kids
-    rivalHero: Math.random() < 0.4 ? otherKid(settings.hero) : null,
+    // sometimes the computer's team is led by one of the other kids (one who isn't playing for you)
+    rivalHero: Math.random() < 0.4 ? otherKid(settings.hero, Object.values(lu)) : null,
+    lineup: Object.fromEntries(Object.entries(lu).map(([r, k]) => [r, poolByKey(k).hero])),
   });
   $('.board .home .abbr').textContent = game.teams[0].kit.abbr;
   $('.board .away .abbr').textContent = game.teams[1].kit.abbr;
@@ -166,8 +258,8 @@ function startMatch() {
   if (input.touchUsed || matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
 }
 
-function otherKid(id) {
-  const others = PROFILES.filter((p) => p.id !== id);
+function otherKid(id, taken = []) {
+  const others = PROFILES.filter((p) => p.id !== id && !taken.includes('kid:' + p.id));
   return others.length ? others[(Math.random() * others.length) | 0].id : null;
 }
 

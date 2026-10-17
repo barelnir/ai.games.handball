@@ -99,6 +99,7 @@ export class Game {
         this.powers.configure(t.idx, tp, t.idx === 1 ? RIVAL : profileById(), cb);
       }
     }
+    if (this.opts.lineup && h >= 0) this.applyLineup(this.teams[h], this.teams[1 - h], this.opts.lineup);
     this.ball = {
       x: CX, y: CY, z: 0, vx: 0, vy: 0, vz: 0, owner: null, state: 'dead', passTo: null, tx: 0, ty: 0,
       shooter: null, goalX: 0, shotDist: 0, age: 0, last: null, lastTeam: 0, ignore: null,
@@ -678,6 +679,24 @@ export class Game {
     b.owner = null; b.ignore = p; b.age = 0; b.tried.clear(); b.last = p; b.lastTeam = p.team;
     p.carry = null; p.charging = false; p.charge = 0;
     if (this.lock && this.lock.p === p) this.lock = null;
+  }
+
+  // Your chosen line-up (role -> hero; your kid stays centre back). The computer's team then swaps
+  // out any hero you took, so nobody plays on both sides.
+  applyLineup(mine, rival, lineup) {
+    const used = new Set();
+    for (const p of mine.players) {
+      if (p.role !== 'CB' && lineup[p.role]) p.hero = lineup[p.role];
+      used.add(p.hero.name);
+    }
+    const theirs = new Set(rival.players.map((p) => p.hero.name));
+    const spare = [...SQUADS[1].heroes, ...SQUADS[0].heroes].filter((x) => !used.has(x.name) && !theirs.has(x.name) && x.name !== 'Eitan');
+    for (const p of rival.players) {
+      if (!used.has(p.hero.name)) continue;
+      const k = Math.max(0, spare.findIndex((x) => x.role === p.role));
+      const x = spare.splice(k, 1)[0];
+      if (x) p.hero = p.role === 'CB' ? { ...x, custom: true } : x;
+    }
   }
 
   pass(p, m) {

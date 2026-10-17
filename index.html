@@ -101,12 +101,18 @@
     <header class="pick-head">
       <button id="pickBack" class="ghost">חזרה</button>
       <div>
-        <p class="eyebrow" id="pickStep">שלב 1 מתוך 2</p>
+        <p class="eyebrow" id="pickStep">שלב 1 מתוך 3</p>
         <h2 id="pickTitle">בחרו נבחרת</h2>
       </div>
+      <button id="lineupGo" class="cta" hidden>יאללה, משחקים!</button>
     </header>
     <div class="pick-grid" id="pickTeams"></div>
     <div class="pick-grid" id="pickPowers" hidden></div>
+    <div id="pickLineup" class="lineup" hidden>
+      <div class="lu-slots" id="luSlots"></div>
+      <p class="lu-hint" id="luHint">בחרו עמדה, ואז בחרו מי משחק בה</p>
+      <div class="lu-pool" id="luPool"></div>
+    </div>
   </div>
 </section>
 

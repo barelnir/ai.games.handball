@@ -83,6 +83,8 @@ async function startMatch(P, team = 0, power = 0) {
   await t.tapEl('#pickTeams .pick-card', team);
   await wait(page, 300);
   await t.tapEl('#pickPowers .pick-card', power);
+  await wait(page, 300);
+  await t.tapEl('#lineupGo');
   await page.waitForFunction(() => handball.mode === 'play' && handball.game.state === 'play', null, { timeout: 15000 });
 }
 
@@ -121,6 +123,10 @@ await run('flow', async () => {
   check(powers.length === 5 && powers.some((s) => s.includes('קרח')), 'five powers incl. ice', powers.join(' | '));
   await page.screenshot({ path: `${out}/03-pick-power.png` });
   await t.tapEl('#pickPowers .pick-card', powers.findIndex((s) => s.includes('קרח')));
+  await wait(page, 400);
+  check(await page.isVisible('#pickLineup') && (await page.textContent('#pickStep')).includes('3'), 'then step 3: pick the players');
+  await page.screenshot({ path: `${out}/03b-pick-players.png` });
+  await t.tapEl('#lineupGo');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 5000 });
   await wait(page, 1500);
   check(await page.isVisible('#hud') && await page.isVisible('#stick') && await page.isVisible('#btnB'), 'match starts with arrow pad and buttons');
@@ -315,6 +321,56 @@ await run('menus', async () => {
 });
 
 // ---------------------------------------------------------------- 7. a whole match, fast-forwarded
+// ---------------------------------------------------------------- pick the players
+await run('lineup', async () => {
+  const P = await phone();
+  const { page, t, errors } = P;
+  await page.goto(url);
+  await page.evaluate(() => localStorage.clear());
+  await page.reload(); await wait(page, 1200);
+  await t.tapEl('#play'); await wait(page, 300);
+  await t.tapEl('#pickTeams .pick-card', 0); await wait(page, 300);
+  await t.tapEl('#pickPowers .pick-card', 0); await wait(page, 400);
+  const slots = () => page.locator('#luSlots .lu-card b').allTextContents();
+  const s0 = await slots();
+  check(s0.length === 7 && s0.includes('איתן'), 'seven positions, your kid in the middle', s0.join(' | '));
+  check(!(await page.locator('#luPool .lu-card:visible b').allTextContents()).includes('איתן'), 'your own kid is not in the list');
+  // tap a position, then a player: Emma at left back, Eyal at right back
+  await t.tapEl('#luSlots .lu-card', 2); await t.tapEl('#luPool .lu-card:has-text("אמה")');
+  await t.tapEl('#luSlots .lu-card', 4); await t.tapEl('#luPool .lu-card:has-text("אייל")');
+  let s1 = await slots();
+  check(s1[2] === 'אמה' && s1[4] === 'אייל', 'Emma and Eyal join the team', s1.join(' | '));
+  // picking someone who already plays swaps the two places
+  await t.tapEl('#luSlots .lu-card', 1); await t.tapEl('#luPool .lu-card:has-text("אמה")');
+  s1 = await slots();
+  check(s1[1] === 'אמה' && s1[2] === s0[1], 'picking a player twice swaps the places', s1.join(' | '));
+  check(new Set(s1).size === 7, 'nobody plays twice', s1.join(' | '));
+  // the middle (your kid with the power) can't be changed
+  await t.tapEl('#luSlots .lu-card', 3); await t.tapEl('#luPool .lu-card:has-text("זיפ")');
+  check((await slots())[3] === 'איתן', 'your kid stays in the middle');
+  await page.screenshot({ path: `${out}/38-lineup.png` });
+  await t.tapEl('#lineupGo');
+  await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
+  const teams = await G(page, () => handball.game.teams.map((tm) => tm.players.map((p) => p.hero.nameHe)));
+  check(teams[0].includes('אמה') && teams[0].includes('אייל') && teams[0].includes('איתן'), 'all three kids play together', teams[0].join(','));
+  check(!teams[1].some((n) => teams[0].includes(n)), 'the computer\'s team has nobody from yours', teams[1].join(','));
+  // the line-up is remembered
+  await page.reload(); await wait(page, 1200);
+  await t.tapEl('#play'); await wait(page, 300);
+  await t.tapEl('#pickTeams .pick-card', 0); await wait(page, 300);
+  await t.tapEl('#pickPowers .pick-card', 0); await wait(page, 400);
+  const s2 = await slots();
+  check(s2.join() === s1.join(), 'the line-up is remembered', s2.join(' | '));
+  // picking Emma's team: Emma moves to the middle and leaves the list; her old place gets someone else
+  await t.tapEl('#pickBack'); await t.tapEl('#pickBack'); await wait(page, 300);
+  await t.tapEl('#pickTeams .pick-card', 1); await wait(page, 300);
+  await t.tapEl('#pickPowers .pick-card', 0); await wait(page, 400);
+  const s3 = await slots();
+  check(s3[3] === 'אמה' && s3.filter((n) => n === 'אמה').length === 1 && new Set(s3).size === 7, 'switching kids keeps the line-up valid', s3.join(' | '));
+  check(errors.length === 0, 'no errors in the line-up step', errors.join(' | '));
+  await page.close();
+});
+
 // ---------------------------------------------------------------- views: top / TV camera
 await run('view', async () => {
   const P = await phone();
