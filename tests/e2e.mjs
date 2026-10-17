@@ -74,9 +74,8 @@ async function waitGame(page, secs) {
 }
 const me = (page) => G(page, () => { const g = handball.game, c = g.controlled; return c && { id: c.id, x: c.x, y: c.y, sp: Math.hypot(c.vx, c.vy), state: g.state, stick: handball.input.stick.id }; });
 
-const POWER_LABEL = { lightning: 'ברק', fire: 'אש', muscle: 'שרירים', ice: 'קרח', captain: 'קפטן', random: 'הפתעה' };
-// home -> team (הצרעות) -> captain -> play; optionally cycle the captain's power chip to `power`
-async function startMatch(P, kid = 0, power = null) {
+// home -> team (הצרעות) -> play (all four kids play by default); then fix the power kid and the power if asked
+async function startMatch(P, kid = null, power = null) {
   const { page, t } = P;
   await page.goto(url);
   await wait(page, 1200);
@@ -84,11 +83,12 @@ async function startMatch(P, kid = 0, power = null) {
   await wait(page, 300);
   await t.tapEl('#teamCards .lu-card:visible', 0);
   await wait(page, 300);
-  await t.tapEl('.kid-card .kid-face', kid);
-  await wait(page, 200);
-  for (let i = 0; power && i < 7 && !(await page.textContent('#powerChip')).includes(POWER_LABEL[power]); i++) { await t.tapEl('#powerChip'); await wait(page, 60); }
   await t.tapEl('#go');
   await page.waitForFunction(() => handball.mode === 'play' && handball.game.state === 'play', null, { timeout: 15000 });
+  if (kid !== null || power) {
+    await G(page, ([k, p]) => { const ids = ['eitan', 'emma', 'eyal', 'rafael'], o = {}; if (p) o.power = p; if (k !== null) { o.captain = ids[k]; o.friends = ids.filter((x) => x !== ids[k]); } handball.replayWith(o); }, [kid, power]);
+    await page.waitForFunction(() => handball.mode === 'play' && handball.game.state === 'play', null, { timeout: 15000 });
+  }
 }
 
 const run = async (name, fn) => {
@@ -128,21 +128,21 @@ await run('flow', async () => {
   await wait(page, 400);
   const kids = await page.locator('.kid-card b').allTextContents();
   check(kids.length === 4 && ['אייל', 'אמה', 'איתן', 'רפל'].every((n) => kids.includes(n)), 'four kids, רפל too', kids.join(' | '));
-  await t.tapEl('.kid-card:has-text("אייל") .kid-face'); taps++;
-  await wait(page, 300);
-  check((await page.textContent('#powerChip')).includes('קרח'), 'Eyal comes with his own power: ice', await page.textContent('#powerChip'));
+  check(await page.locator('.kid-card.in').count() === 4, 'all four kids play at first');
+  check(!(await page.isVisible('#powerChip')) && (await page.textContent('#kidHint')).includes('נגריל'), 'no power to pick: it is drawn at kick-off');
   check((await page.textContent('#oppChip')).includes('הצפעונים') && await page.isDisabled('#oppChip'), 'הצרעות always play הצפעונים (no shuffle)');
   const noOverflow = await G(page, () => [...document.querySelectorAll('#pick button')].filter((b) => b.offsetParent).every((b) => { const r = b.getBoundingClientRect(); return r.bottom <= innerHeight + 1 && r.left >= -1 && r.right <= innerWidth + 1; }));
   check(noOverflow, 'everything on the kids screen fits the phone');
   await page.screenshot({ path: `${out}/03-pick-kids.png` });
   await t.tapEl('#go'); taps++;
-  check(taps === 4, 'four taps from opening to the match');
+  check(taps === 3, 'three taps from opening to the match');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 5000 });
   await wait(page, 1500);
   check(await page.isVisible('#hud') && await page.isVisible('#stick') && await page.isVisible('#btnB'), 'match starts with arrow pad and buttons');
   const labels = await G(page, () => ['#lA', '#lB', '#btnP span', '#btnP small', '#half', '.board .home .abbr', '#bTitle'].map((s) => document.querySelector(s).textContent).join(' '));
   check(!/[A-Za-z]/.test(labels), 'in-game labels are Hebrew', labels);
-  check(await G(page, () => handball.game.profile.id) === 'eyal' && await G(page, () => handball.game.template.key) === 'ice', 'picked Eyal with the ice power');
+  const drawn = await G(page, () => ({ kid: handball.game.profile.nameHe, power: handball.game.template.label, msg: handball.game.msg && handball.game.msg.title + ' ' + handball.game.msg.sub }));
+  check(['איתן', 'אמה', 'אייל', 'רפל'].includes(drawn.kid) && drawn.msg.includes(drawn.kid) && drawn.msg.includes(drawn.power), 'kick-off tells who got which power', drawn.msg);
   let peak = 0;
   for (let i = 0; i < 12; i++) { peak = Math.max(peak, await G(page, () => { const c = window.__acs[0]; if (!c) return 0; const d = new Float32Array(2048); c.__an.getFloatTimeDomainData(d); return Math.max(...d.map(Math.abs)); })); await wait(page, 100); }
   check(peak > 0.1, 'music is playing', `peak ${peak.toFixed(2)}`);
@@ -338,38 +338,35 @@ await run('kids', async () => {
   await page.goto(url); await wait(page, 1200);
   await t.tapEl('#play'); await wait(page, 300);
   await t.tapEl('#teamCards .lu-card:has-text("א.כ. נס ציונה")'); await wait(page, 300);
-  const cls = (n) => G(page, (n) => [...document.querySelectorAll('.kid-card')].find((k) => k.textContent.includes(n)).className, n);
-  check(/cap/.test(await cls('איתן')) && !/in/.test(await cls('אמה')), 'only the captain is on the team at first');
-  // Eyal's power to fire, then Emma is captain (her own fire), then Eyal again: still fire
-  await t.tapEl('.kid-card:has-text("אייל") .kid-face');
-  for (let i = 0; i < 7 && !(await page.textContent('#powerChip')).includes('אש'); i++) await t.tapEl('#powerChip');
-  await t.tapEl('.kid-card:has-text("אמה") .kid-face');
-  check((await page.textContent('#powerChip')).includes('אש'), 'Emma has her own power (fire)', await page.textContent('#powerChip'));
-  await t.tapEl('.kid-card:has-text("אייל") .kid-face');
-  check((await page.textContent('#powerChip')).includes('אש'), 'each kid keeps the power they picked', await page.textContent('#powerChip'));
-  // friends: Emma is in (she was captain before); add רפל, keep איתן out
-  await t.tapEl('.kid-card:has-text("רפל") .kid-toggle');
-  if (/in/.test(await cls('איתן'))) await t.tapEl('.kid-card:has-text("איתן") .kid-toggle');
-  check(/in/.test(await cls('רפל')) && /in/.test(await cls('אמה')) && !/in/.test(await cls('איתן')), 'friends are added and removed with one tap');
-  // the opponent chip re-rolls within the kids' league and never picks us
+  const on = () => page.locator('.kid-card.in b').allTextContents();
+  // take out איתן and רפל with one tap each
+  await t.tapEl('.kid-card:has-text("איתן")'); await t.tapEl('.kid-card:has-text("רפל")');
+  check((await on()).sort().join() === ['אייל', 'אמה'].sort().join(), 'a tap takes a kid out', (await on()).join(','));
+  // at least one kid always plays
+  await t.tapEl('.kid-card:has-text("אמה")'); await t.tapEl('.kid-card:has-text("אייל")');
+  check((await on()).length === 1 && (await page.textContent('#kidHint')).includes('לפחות'), 'at least one kid plays', (await on()).join(','));
+  await t.tapEl('.kid-card:has-text("אמה")');
+  if (!(await on()).includes('אייל')) await t.tapEl('.kid-card:has-text("אייל")');
+  check((await on()).sort().join() === ['אייל', 'אמה'].sort().join(), 'a tap puts a kid back', (await on()).join(','));
+  // the opponent chip re-rolls within the kids' league; its kid is never one of ours
   const seen = new Set();
   for (let i = 0; i < 8; i++) {
     const txt = await page.textContent('#oppChip');
     seen.add(txt.replace(/ · עם .*/, '').replace(' 🔀', ''));
-    if (/עם (אייל|אמה|רפל)/.test(txt)) check(false, 'the computer\'s kid is never one of ours', txt);
+    if (/עם (אייל|אמה)/.test(txt)) check(false, 'the computer\'s kid is never one of ours', txt);
     await t.tapEl('#oppChip'); await wait(page, 50);
   }
-  const opps = [...seen].join(' | ');
-  check(seen.size >= 3 && ![...seen].some((x) => /נס ציונה|הצרעות|ישראל|ספרד/.test(x)), 'the opponent re-rolls among other kids\' clubs', opps);
+  check(seen.size >= 3 && ![...seen].some((x) => /נס ציונה|הצרעות|ישראל|ספרד/.test(x)), 'the opponent re-rolls among other kids\' clubs', [...seen].join(' | '));
   await page.screenshot({ path: `${out}/38-kids.png` });
   const chip = await page.textContent('#oppChip');
   await t.tapEl('#go');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
-  const g = await G(page, () => { const g = handball.game; return { mine: g.teams[0].players.map((p) => p.hero.nameHe), theirs: g.teams[1].players.map((p) => p.hero.nameHe), cb: g.teams[0].players.find((p) => p.role === 'CB').hero.nameHe, power: g.template.key, teams: g.teams.map((x) => x.kit.he), rivalKid: g.rivalProfile ? g.rivalProfile.nameHe : null }; });
-  check(g.cb === 'אייל' && g.power === 'fire', 'Eyal is captain with the power he picked', `${g.cb} ${g.power}`);
-  check(g.mine.includes('אמה') && g.mine.includes('רפל') && !g.mine.includes('איתן') && new Set(g.mine).size === 7, 'the friends play, nobody twice', g.mine.join(','));
+  const g = await G(page, () => { const g = handball.game; return { mine: g.teams[0].players.map((p) => p.hero.nameHe), cb: g.teams[0].players.find((p) => p.role === 'CB').hero.nameHe, teams: g.teams.map((x) => x.kit.he), rivalKid: g.rivalProfile ? g.rivalProfile.nameHe : null, crest: g.teams[0].kit.crest && g.teams[0].kit.crest.txt }; });
+  check(['אייל', 'אמה'].includes(g.cb), 'one of our kids carries the power', g.cb);
+  check(g.mine.includes('אמה') && g.mine.includes('אייל') && !g.mine.includes('איתן') && !g.mine.includes('רפל') && new Set(g.mine).size === 7, 'our kids play, nobody twice', g.mine.join(','));
   check(!g.mine.some((n) => ['סליל', 'היס', 'ניב', 'ארס', 'רעשן', 'זחל', 'פייתון'].includes(n)), 'no Vipers on our team', g.mine.join(','));
   check(g.teams[0] === 'א.כ. נס ציונה' && chip.includes(g.teams[1]) && (!g.rivalKid || chip.includes(g.rivalKid)), 'the match is exactly what the chip said', `${chip} -> ${g.teams.join(' - ')} ${g.rivalKid || ''}`);
+  check(g.crest === 'נ״צ', 'נס ציונה wear their emblem', g.crest);
   check(errors.length === 0, 'no errors on the kids screen', errors.join(' | '));
   await page.close();
 });
@@ -386,7 +383,7 @@ await run('teams', async () => {
   await page.screenshot({ path: `${out}/39-nations.png` });
   await t.tapEl('#teamCards .lu-card:visible:has-text("ישראל")'); await wait(page, 300);
   check((await page.textContent('#pickTitle')).includes('ישראל'), 'the kids screen names the team', await page.textContent('#pickTitle'));
-  await t.tapEl('.kid-card:has-text("רפל") .kid-face');
+  for (const n of ['איתן', 'אמה', 'אייל']) await t.tapEl(`.kid-card:has-text("${n}")`); // only רפל plays
   const chip = await page.textContent('#oppChip');
   await t.tapEl('#go');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
@@ -431,7 +428,7 @@ await run('teams', async () => {
   await t.tapEl('#play'); await wait(page, 300);
   check(await G(page, () => document.querySelector('#teamCards .lu-card.sel b').textContent) === 'הכדוריד חולון', 'old saved team carries over');
   await t.tapEl('#teamCards .lu-card.sel'); await wait(page, 300);
-  check(/cap/.test(await G(page, () => [...document.querySelectorAll('.kid-card')].find((k) => k.textContent.includes('אמה')).className)), 'old saved hero becomes the captain');
+  check((await page.locator('.kid-card.in b').allTextContents()).join() === 'אמה', 'old saved hero becomes the team\'s kid');
   check(errors.length === 0, 'no errors with teams', errors.join(' | '));
   await page.close();
 });

@@ -17,7 +17,7 @@ const STEP = 1 / 60;
 // Saved choices (key handball8; older handball7 data is carried over once).
 const settings = {
   difficulty: 'normal', half: '300', rules: 'arcade', sound: true, music: true, view: 'top',
-  team: 'hornets', captain: 'eitan', friends: [], powerByKid: {}, opponent: null, oppKid: null, played: false,
+  team: 'hornets', players: ['eitan', 'emma', 'eyal', 'rafael'], opponent: null, oppKid: null, played: false,
 };
 try {
   const saved = localStorage.getItem('handball8');
@@ -25,7 +25,7 @@ try {
   else {
     const old = JSON.parse(localStorage.getItem('handball7') || '{}');
     for (const k of ['difficulty', 'half', 'rules', 'sound', 'music', 'view']) if (k in old) settings[k] = old[k];
-    if (old.hero) settings.captain = old.hero;
+    if (old.hero) settings.players = [old.hero];
     if (old.myClub) settings.team = old.myClub;
     if (old.rivalClub) settings.opponent = old.rivalClub;
   }
@@ -104,43 +104,41 @@ function resize() {
   $('#rotate').hidden = !(portrait && mode === 'play');
 }
 
-// ------------------------------------------------------------------ picking: team, then who plays
-// One model: you play for a TEAM (הצרעות, a kids'-league club or a nation) against an opponent team.
-// Your CAPTAIN is one of the kids (centre back, with their power); FRIENDS are other kids on your team.
-// The rest of the line-up is filled automatically with the Hornets' cartoon heroes.
+// ------------------------------------------------------------------ picking: team, then the players
+// You play for a TEAM (הצרעות, a kids'-league club or a nation) against an opponent team.
+// Then you pick which of the kids play; the rest of the line-up is the Hornets' cartoon heroes.
+// At kick-off one of your kids is drawn to carry the special power, and the power is drawn too.
 const pick = { step: 'team', teams: [], kids: [], dirty: true };
-const POWER_KEYS = ['lightning', 'fire', 'muscle', 'ice', 'captain', 'random'];
-const POWER_ICON = { lightning: '⚡', fire: '🔥', muscle: '💪', ice: '❄', captain: '⭐', random: '🎲' };
-const powerName = (k) => (k === 'random' ? 'הפתעה' : TEMPLATES[k].label);
+const POWER_KEYS = ['lightning', 'fire', 'muscle', 'ice', 'captain'];
+const POWER_ICON = { lightning: '⚡', fire: '🔥', muscle: '💪', ice: '❄', captain: '⭐' };
 const kidIds = () => PROFILES.map((p) => p.id);
-const onTeam = () => [settings.captain, ...settings.friends];
-// a kid's power: their own signature power unless they picked another one (or a surprise)
-const powerOf = (id) => settings.powerByKid[id] || profileById(id).power || 'lightning';
+const draw = (a) => a[(Math.random() * a.length) | 0];
 const teamOfSettings = () => teamById(settings.team) || HORNETS;
 
 function cleanSettings() {
-  if (!kidIds().includes(settings.captain)) settings.captain = 'eitan';
-  settings.friends = [...new Set(settings.friends)].filter((k) => kidIds().includes(k) && k !== settings.captain);
+  settings.players = [...new Set(settings.players || [])].filter((k) => kidIds().includes(k));
+  if (!settings.players.length) settings.players = ['eitan'];
   if (!teamById(settings.team) || settings.team === 'vipers') settings.team = 'hornets';
   if (!VIEWS.includes(settings.view)) settings.view = settings.view === 'night' ? 'tv' : 'top';
   const pool = opponentsOf(settings.team);
   if (!pool.some((t) => t.id === settings.opponent)) rollOpponent(false);
-  if (settings.oppKid && (onTeam().includes(settings.oppKid) || !kidIds().includes(settings.oppKid))) settings.oppKid = null;
+  if (settings.oppKid && (settings.players.includes(settings.oppKid) || !kidIds().includes(settings.oppKid))) settings.oppKid = null;
 }
-// A new opponent from your team's group; sometimes a free kid (not on your team) leads it.
+// A new opponent from your team's group; sometimes a kid who isn't playing for you leads it.
 function rollOpponent(saveNow = true) {
   const pool = opponentsOf(settings.team), cur = settings.opponent;
   const choices = pool.length > 1 ? pool.filter((t) => t.id !== cur) : pool;
-  settings.opponent = choices[(Math.random() * choices.length) | 0].id;
-  const free = kidIds().filter((k) => !onTeam().includes(k));
-  settings.oppKid = free.length && Math.random() < 0.4 ? free[(Math.random() * free.length) | 0] : null;
+  settings.opponent = draw(choices).id;
+  const free = kidIds().filter((k) => !(settings.players || []).includes(k));
+  settings.oppKid = free.length && Math.random() < 0.4 ? draw(free) : null;
   if (saveNow) save();
 }
-// Friends play left back, right back, line and left wing; the Hornets fill the other places.
+// The power kid plays centre back; the other kids play left back, right back, line and left wing;
+// the Hornets fill the other places.
 const FRIEND_SPOTS = ['LB', 'RB', 'PV', 'LW'];
-function autoLineup() {
+function autoLineup(friends) {
   const out = {};
-  settings.friends.slice(0, FRIEND_SPOTS.length).forEach((k, i) => { out[FRIEND_SPOTS[i]] = kidHero(profileById(k)); });
+  friends.slice(0, FRIEND_SPOTS.length).forEach((k, i) => { out[FRIEND_SPOTS[i]] = kidHero(profileById(k)); });
   for (const h of T.SQUADS[0].heroes) if (h.role !== 'CB' && !out[h.role]) out[h.role] = h;
   return out;
 }
@@ -160,6 +158,7 @@ function drawMini(r, hero, kit) {
   r.begin(0, -0.62, cv.height / 1.75, T.TP.clear);
   T.drawHero(r, hero, kit, { x: 0, y: 0.08, z: 0, face: Math.PI / 2, phase: 0, vx: 0, vy: 0 }, { t: 0 });
   if (kit.badge) T.drawFlag(r, kit.badge, 0.42, -1.12, 0.2); // national teams: their flag on the card
+  else if (kit.crest) T.drawCrest(r, kit.crest, 0.4, -1.2, 0.27); // clubs: their emblem
   r.end();
 }
 
@@ -175,31 +174,20 @@ function buildPick() {
     showPick('kids');
   }) }));
   pick.teams.forEach((c) => { c.el.querySelector('b').textContent = c.t.he; });
-  // screen 2: who plays
+  // screen 2: which kids play (tap to add or take out; at least one kid plays)
   pick.kids = PROFILES.map((pr) => {
-    const el = document.createElement('div');
+    const el = document.createElement('button');
     el.className = 'kid-card';
-    el.innerHTML = '<button class="kid-face"><canvas aria-hidden="true"></canvas><b></b><small></small></button><button class="kid-toggle"></button>';
+    el.innerHTML = '<canvas aria-hidden="true"></canvas><b></b><small></small>';
     el.querySelector('b').textContent = pr.nameHe;
-    // tap a kid: they become the captain (the old captain stays on the team as a friend)
-    el.querySelector('.kid-face').addEventListener('click', () => {
-      if (settings.captain === pr.id) return;
-      settings.friends = [...settings.friends.filter((k) => k !== pr.id), settings.captain];
-      settings.captain = pr.id;
-      cleanSettings(); save(); syncKids();
-    });
-    el.querySelector('.kid-toggle').addEventListener('click', () => {
-      if (settings.captain === pr.id) return;
-      settings.friends = settings.friends.includes(pr.id) ? settings.friends.filter((k) => k !== pr.id) : [...settings.friends, pr.id];
+    el.addEventListener('click', () => {
+      const on = settings.players.includes(pr.id);
+      if (on && settings.players.length === 1) { $('#kidHint').textContent = 'צריך לפחות ילד אחד בקבוצה'; return; }
+      settings.players = on ? settings.players.filter((k) => k !== pr.id) : [...settings.players, pr.id];
       cleanSettings(); save(); syncKids();
     });
     $('#kidCards').appendChild(el);
     return { pr, el, r: createRenderer(el.querySelector('canvas'), { preferGL: false }) };
-  });
-  $('#powerChip').addEventListener('click', () => {
-    const cur = powerOf(settings.captain);
-    settings.powerByKid[settings.captain] = POWER_KEYS[(POWER_KEYS.indexOf(cur) + 1) % POWER_KEYS.length];
-    save(); syncKids();
   });
   $('#oppChip').addEventListener('click', () => { if (settings.team !== 'hornets') { rollOpponent(); syncKids(); } });
   $('#go').addEventListener('click', () => newMatch());
@@ -216,18 +204,13 @@ function syncTeams() {
   pick.dirty = true;
 }
 function syncKids() {
-  const opp = teamById(settings.opponent), cap = profileById(settings.captain);
+  const opp = teamById(settings.opponent);
   for (const k of pick.kids) {
-    const id = k.pr.id, isCap = id === settings.captain, isFriend = settings.friends.includes(id);
-    k.el.classList.toggle('cap', isCap);
-    k.el.classList.toggle('in', isFriend);
-    k.el.querySelector('small').textContent = isCap ? '⭐ קפטן' : '';
-    const tg = k.el.querySelector('.kid-toggle');
-    tg.hidden = isCap;
-    tg.textContent = isFriend ? '✓ בקבוצה' : '＋ להוסיף';
+    const on = settings.players.includes(k.pr.id);
+    k.el.classList.toggle('in', on);
+    k.el.querySelector('small').textContent = on ? '✓ משחק' : '＋ להוסיף';
   }
-  const pw = powerOf(settings.captain);
-  $('#powerChip').textContent = `הכוח של ${cap.nameHe}: ${POWER_ICON[pw]} ${powerName(pw)}`;
+  $('#kidHint').textContent = '🎲 בתחילת המשחק נגריל מי מקבל כוח מיוחד, ואיזה כוח';
   const withKid = settings.oppKid ? ` · עם ${profileById(settings.oppKid).nameHe}` : '';
   const oc = $('#oppChip');
   oc.textContent = `נגד ${opp.he}${withKid}` + (settings.team === 'hornets' ? '' : ' 🔀');
@@ -253,9 +236,9 @@ function showPick(step) {
 function renderPick() {
   if (pick.step === 'kids') {
     for (const k of pick.kids) {
-      const r = k.r, cv = r.canvas, pw = powerOf(k.pr.id);
+      const r = k.r, cv = r.canvas;
       r.begin(0, -1.0, cv.height / 4.6, T.TP.clear);
-      drawPortrait(r, k.pr, TEMPLATES[pw === 'random' ? k.pr.power : pw] || TEMPLATES.lightning, now);
+      drawPortrait(r, k.pr, TEMPLATES[k.pr.power] || TEMPLATES.lightning, now);
       r.end();
     }
     return;
@@ -282,13 +265,12 @@ function startDemo() {
 let setup = null;
 function newMatch() {
   cleanSettings();
-  const pw = powerOf(settings.captain), real = (k) => (k === 'random' ? POWER_KEYS[(Math.random() * 5) | 0] : k);
+  const captain = draw(settings.players), friends = settings.players.filter((k) => k !== captain);
   setup = {
     team: settings.team, opponent: settings.opponent, oppKid: settings.oppKid,
-    captain: settings.captain, friends: [...settings.friends], lineup: autoLineup(),
-    power: real(pw), oppPower: settings.oppKid ? powerOf(settings.oppKid) : POWER_KEYS[(Math.random() * 5) | 0],
+    captain, friends, lineup: autoLineup(friends),
+    power: draw(POWER_KEYS), oppPower: draw(POWER_KEYS),
   };
-  if (setup.oppPower === 'random') setup.oppPower = real('random');
   settings.played = true; save();
   goFullscreen();
   startMatch();
@@ -313,6 +295,9 @@ function startMatch() {
   $('.board .home .kit').style.background = game.teams[0].kit.shirt;
   $('.board .away .kit').style.background = game.teams[1].kit.shirt;
   game.input = input.state;
+  // tell everyone who got the power this time
+  const cap = profileById(setup.captain);
+  game.say(`הכוח של ${cap.nameHe}`, `${POWER_ICON[setup.power]} ${TEMPLATES[setup.power].label}`, 2.6, 'info');
   setMode('play');
   requestWakeLock();
   if (input.touchUsed || matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
@@ -322,8 +307,7 @@ function newOpponent() {
   settings.team = setup ? setup.team : settings.team;
   rollOpponent();
   setup.opponent = settings.opponent; setup.oppKid = settings.oppKid;
-  setup.oppPower = settings.oppKid ? powerOf(settings.oppKid) : POWER_KEYS[(Math.random() * 5) | 0];
-  if (setup.oppPower === 'random') setup.oppPower = POWER_KEYS[(Math.random() * 5) | 0];
+  setup.oppPower = draw(POWER_KEYS);
   startMatch();
 }
 function goFullscreen() {
@@ -340,8 +324,7 @@ function syncHome() {
   $('#play').textContent = back ? 'משחק חדש' : 'יאללה, משחקים!';
   $('#play').className = back ? 'ghost' : 'cta';
   if (back) {
-    const cap = profileById(settings.captain), pw = powerOf(settings.captain);
-    $('#againSub').textContent = `${cap.nameHe} ${POWER_ICON[pw]} · ${teamOfSettings().short} נגד ${teamById(settings.opponent).short}`;
+    $('#againSub').textContent = `${teamOfSettings().short} נגד ${teamById(settings.opponent).short} · ${settings.players.map((k) => profileById(k).nameHe).join(', ')}`;
   }
 }
 
@@ -719,6 +702,8 @@ function showBreak() {
 }
 
 // Read-only handle for automated tests (tests/e2e.mjs).
-window.handball = { get game() { return game; }, get mode() { return mode; }, input };
+// for tests: look at the game, and replay the current match with some choices fixed (e.g. the power)
+window.handball = { get game() { return game; }, get mode() { return mode; }, get setup() { return setup; }, input,
+  replayWith(o) { Object.assign(setup, o); if (o.friends) setup.lineup = autoLineup(setup.friends); startMatch(); } };
 
 boot();

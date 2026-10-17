@@ -70,17 +70,16 @@ In the TV view the renderer draws the court as one texture in perspective (a ful
 
 ## Heroes and powers
 
-**The flow** (decided with a UX and a product review: as few taps as possible, one meaning per word):
+**The flow** (decided with a UX and a product review: as few taps as possible, one meaning per word, then simplified again by the parent: no captain and no power to pick):
 - **Home:** "יאללה, משחקים!" the first time. After that, a big **"שחקו שוב"** card replays last time's match in one tap. There is also "משחק חדש", "⚙ הגדרות" (difficulty, half length, rules) and "איך משחקים".
 - **"באיזו קבוצה משחקים?"** has two tabs:
   - **ליגת הילדים:** הצרעות first, then the clubs.
   - **נבחרות:** national teams, with their flags.
   - Tapping a team moves on.
-- **"מי משחק ב…?"** shows the four kids from the photos (איתן, אמה, אייל, רפל):
-  - **Captain:** tap a kid to make them captain. The captain plays centre back with the power.
-  - **Friends:** "＋ להוסיף" puts another kid on the team. Hornets cartoon heroes fill the other places.
-  - **Power:** the power chip starts on the kid's own power (איתן ⚡ ברק, אמה 🔥 אש, אייל ❄ קרח, רפל ⭐ קפטן). Tapping it cycles through the powers, ending with 🎲 הפתעה. Each kid's choice is remembered.
-  - **Opponent:** the opponent chip shows who you play against. It comes from your group: club against club, nation against nation, and הצרעות always against הצפעונים. Tapping 🔀 draws another opponent. Sometimes a kid who isn't on your team leads the opponent, and the chip says so.
+- **"מי משחק ב…?"**:
+  - **Which kids play:** the four kids from the photos (איתן, אמה, אייל, רפל). All four play at first. One tap takes a kid out or puts them back, and at least one kid always plays. The Hornets' cartoon heroes fill the other places.
+  - **Opponent:** the opponent chip shows who you play against. It comes from your group: club against club, nation against nation, and הצרעות always against הצפעונים. Tapping 🔀 draws another opponent. Sometimes a kid who isn't playing for you leads the opponent, and the chip says so.
+  - **The power is drawn:** at kick-off one of your kids is drawn to carry the special power, the power itself is drawn too, and a message says who got what (for example "הכוח של אמה ❄ קרח").
 - **Match:** the corner buttons are the camera (top or TV) and pause. On phones, fullscreen turns on by itself.
 - **Pause:** ממשיכים, מתחילים מחדש (same match), music, sounds, fullscreen, איך משחקים, לתפריט.
 - **End of match:** "עוד משחק!" (same match). "יריב חדש" re-draws only the opponent, but not for הצרעות.

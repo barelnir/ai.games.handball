@@ -158,6 +158,7 @@ export function drawHero(R, h, kit, p, o = {}) {
   B(R, X, bodyY, side ? bw * 0.85 : bw, 0.15 * sc, shirt, 0.09);
   R.rect(X, hipY + 0.01, (side ? bw * 0.85 : bw) - 0.005, 0.022, trim); // belt
   if (!back && kit.badge) drawFlag(R, kit.badge, side ? X + dirX * 0.03 : X, bodyY - 0.02, 0.075);
+  else if (!back && kit.crest) drawCrest(R, kit.crest, side ? X + dirX * 0.03 : X, bodyY - 0.02, 0.07);
   else if (!back) drawEmblem(R, h.emblem, side ? X + dirX * 0.03 : X, bodyY - 0.02, trim, kit);
   if (back) {
     if (has('cape')) {
@@ -425,6 +426,38 @@ export function drawFlag(R, kind, x, y, w) {
     }
     case 'egypt': bandsH([F.bred, F.white, F.black]); R.ellipse(x, y, h * 0.16, h * 0.16, F.gold); break;
     default: R.rect(x, y, w, h, F.white);
+  }
+}
+
+// A club emblem: a shield in the club colours (initials only where the renderer can write text).
+export function drawCrest(R, c, x, y, w) {
+  const A = col(c.a), Bc = col(c.b), h = w * 1.3, top = y - h * 0.62, mid = y + h * 0.3, tip = y + h * 0.72;
+  const by = (top + mid) / 2, bh = (mid - top) / 2;
+  const shield = (pad, colr) => {
+    R.rect(x, by - pad * 0.2, w + pad, bh + pad * 0.8, colr, 0, w * 0.22);
+    R.tri(x - w - pad, mid - bh * 0.3, x + w + pad, mid - bh * 0.3, x, tip + pad * 1.3, colr, w * 0.08 + pad * 0.4);
+  };
+  shield(w * 0.16, TP.ink);
+  shield(w * 0.08, Bc);
+  shield(0, A);
+  if (c.p === 'stripes') for (const k of [-0.5, 0, 0.5]) R.rect(x + k * w, by + h * 0.12, w * 0.11, bh + h * 0.04, Bc);
+  else if (c.p === 'band') R.rect(x, by + bh * 0.55, w * 0.98, h * 0.1, Bc);
+  else if (c.p === 'star') {
+    const r = w * 0.4, cy = mid + h * 0.06;
+    for (let k = 0; k < 5; k++) {
+      const a = -Math.PI / 2 + (k * 2 * Math.PI) / 5;
+      R.tri(x, cy, x + Math.cos(a - 0.6) * r * 0.42, cy + Math.sin(a - 0.6) * r * 0.42, x + Math.cos(a) * r, cy + Math.sin(a) * r, Bc);
+      R.tri(x, cy, x + Math.cos(a + 0.6) * r * 0.42, cy + Math.sin(a + 0.6) * r * 0.42, x + Math.cos(a) * r, cy + Math.sin(a) * r, Bc);
+    }
+  }
+  if (R.g && c.txt && w > 0.12) { // the club's initials (cards only)
+    const g = R.g, cv = R.canvas, ppm = R.cam.ppm;
+    const sx = cv.width / 2 + (x - R.cam.x) * ppm, sy = cv.height / 2 + (by - h * 0.04 - R.cam.y) * ppm;
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+    g.font = `900 ${Math.round(w * 0.78 * ppm)}px Rubik, Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.direction = 'rtl';
+    g.lineJoin = 'round'; g.lineWidth = Math.max(2, w * 0.2 * ppm); g.strokeStyle = '#141a2e'; g.strokeText(c.txt, sx, sy);
+    g.fillStyle = '#ffffff'; g.fillText(c.txt, sx, sy);
+    g.restore();
   }
 }
 

@@ -7,6 +7,18 @@ import { SQUADS } from './toon.js';
 
 const kit = (shirt, trim, shorts, gk, gkTrim) => ({ shirt, trim, shorts, cape: trim, shoe: '#ffffff', gk, gkTrim, mask: '#1b2a4a', glow: shirt });
 
+// Each club gets an emblem of our own (not the club's official logo): a shield in its colours, with
+// its initials on the cards and a stripe pattern on the shirts.
+const CRESTS = {
+  'nes-ziona': { a: '#ff7a1a', b: '#ffffff', txt: 'נ״צ', p: 'band' },
+  'hapoel-rishon': { a: '#e23b3b', b: '#ffffff', txt: 'ה״ר', p: 'stripes' },
+  'maccabi-rishon': { a: '#ffd23f', b: '#1d4fbf', txt: 'מ״ר', p: 'star' },
+  'hapoel-ashdod': { a: '#c81e2a', b: '#161616', txt: 'ה״א', p: 'stripes' },
+  holon: { a: '#2f6fe0', b: '#ffffff', txt: 'ח״ל', p: 'band' },
+  'kfar-saba': { a: '#2fa84f', b: '#ffffff', txt: 'כ״ס', p: 'stripes' },
+  rehovot: { a: '#56b4f0', b: '#0b2a5a', txt: 'מ״ח', p: 'star' },
+};
+
 // group 'league': clubs from the kids' league; 'nation': national teams
 export const CLUBS = [
   { id: 'nes-ziona', he: 'א.כ. נס ציונה', short: 'נס ציונה', kit: kit('#ff7a1a', '#ffffff', '#ffffff', '#3f8ee6', '#0c2257') }, // "the Oranges"
@@ -16,7 +28,7 @@ export const CLUBS = [
   { id: 'holon', he: 'הכדוריד חולון', short: 'חולון', kit: kit('#2f6fe0', '#ffffff', '#ffffff', '#ff9f1c', '#5a2e00') },
   { id: 'kfar-saba', he: 'הפועל כפר סבא', short: 'כפר סבא', kit: kit('#2fa84f', '#ffffff', '#0e3b22', '#8b5cf6', '#24124f') },
   { id: 'rehovot', he: 'מכבי רחובות', short: 'רחובות', kit: kit('#56b4f0', '#0b2a5a', '#0b2a5a', '#ffd23f', '#4a3a00') },
-].map((c) => ({ ...c, group: 'league' }));
+].map((c) => ({ ...c, group: 'league', kit: { ...c.kit, crest: CRESTS[c.id] } }));
 
 export const NATIONS = [
   { id: 'israel', he: 'ישראל', short: 'ישראל', kit: kit('#ffffff', '#1d4fbf', '#1d4fbf', '#ffd23f', '#4a3a00') },

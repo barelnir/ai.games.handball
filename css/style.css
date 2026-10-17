@@ -238,27 +238,26 @@ body:not(.touch) #stick { display: none; }
 .lu-card.sel { border-color: var(--hornet); box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.4), 0 4px 0 rgba(0, 0, 0, 0.35); }
 .kid-row { display: flex; justify-content: center; gap: 10px; }
 .kid-card {
-  width: 170px; display: grid; justify-items: center; gap: 4px; padding: 8px 6px;
+  width: 160px; display: grid; justify-items: center; gap: 2px; padding: 8px 6px;
   background: rgba(19, 32, 47, 0.92); border: 3px solid var(--outline); border-radius: 16px; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
 }
-.kid-card.cap { border-color: var(--hornet); box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.45), 0 4px 0 rgba(0, 0, 0, 0.35); }
-.kid-card.in { border-color: #7fe7ff; }
-.kid-face { display: grid; justify-items: center; gap: 2px; border: 0; background: none; padding: 0; }
-.kid-face canvas { width: 104px; height: 104px; border-radius: 50%; border: 3px solid var(--outline); background: #101833; display: block; }
-.kid-face b { font: 900 20px/1.1 var(--display); color: var(--ink); }
-.kid-card.cap .kid-face b { color: var(--hornet); }
-.kid-face small { min-height: 1.3em; font-size: 14px; font-weight: 800; color: var(--hornet); }
-.kid-toggle { border: 2px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.06); padding: 4px 12px; font-weight: 800; font-size: 14px; }
-.kid-card.in .kid-toggle { border-color: #7fe7ff; color: #7fe7ff; }
+.kid-card canvas { width: 104px; height: 104px; border-radius: 50%; border: 3px solid var(--outline); background: #101833; display: block; filter: grayscale(0.7) brightness(0.7); }
+.kid-card b { font: 900 20px/1.1 var(--display); color: var(--muted); }
+.kid-card small { font-size: 14px; font-weight: 800; color: var(--muted); }
+.kid-card.in { border-color: var(--hornet); box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.4), 0 4px 0 rgba(0, 0, 0, 0.35); }
+.kid-card.in canvas { filter: none; }
+.kid-card.in b { color: var(--ink); }
+.kid-card.in small { color: var(--hornet); }
+.kid-hint { margin: 6px 0 0; text-align: center; color: var(--muted); font-size: 14px; font-weight: 700; }
 .kid-foot { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .chip { border: 2px solid var(--outline); border-radius: 999px; background: rgba(19, 32, 47, 0.92); padding: 8px 14px; font-weight: 800; font-size: 15px; }
 .chip.opp::before { content: ''; display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--shirt, var(--viper)); border: 2px solid rgba(255, 255, 255, 0.75); margin-inline-end: 6px; vertical-align: -2px; }
 .chip:disabled { opacity: 1; cursor: default; }
 #go { padding: 10px 22px; font-size: 22px; }
 @media (max-height: 430px) {
-  .kid-face canvas { width: 84px; height: 84px; }
-  .kid-card { width: 150px; padding: 6px 4px; }
-  .kid-face b { font-size: 18px; }
+  .kid-card canvas { width: 88px; height: 88px; }
+  .kid-card { width: 146px; padding: 6px 4px; }
+  .kid-card b { font-size: 18px; }
   .lu-card canvas { width: 48px; height: 48px; }
   .lu-card { width: 92px; padding: 4px; }
   .pick-panel { gap: 6px; }
