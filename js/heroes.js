@@ -9,25 +9,25 @@ export const PROFILES = [
   {
     id: 'eitan', name: 'Eitan', nameHe: 'איתן',
     skin: '#f2c6a4', skinShade: '#e2a684', hair: '#6e4a2a', hairHi: '#9b7046', brow: '#4a3120',
-    iris: '#6a4225', glasses: '#2a1712', style: 'swoop', mouth: 'smirk',
+    iris: '#6a4225', glasses: '#2a1712', style: 'swoop', mouth: 'smirk', power: 'lightning',
   },
   {
     // light-brown loose hair down to the shoulders, big happy smile with a missing front tooth, earrings
     id: 'emma', name: 'Emma', nameHe: 'אמה',
     skin: '#f3c8a8', skinShade: '#e3a888', hair: '#b08a5c', hairHi: '#dcbf8e', brow: '#6e5236',
-    iris: '#4a2e1c', glasses: null, style: 'long', mouth: 'grin', earrings: '#e8c25a', girl: true,
+    iris: '#4a2e1c', glasses: null, style: 'long', mouth: 'grin', earrings: '#e8c25a', girl: true, power: 'fire',
   },
   {
     // light ash-brown hair with a fringe falling over the forehead, short sides, calm closed smile
     id: 'eyal', name: 'Eyal', nameHe: 'אייל',
     skin: '#f1c9a9', skinShade: '#dfa785', hair: '#a88d63', hairHi: '#d4bc90', brow: '#6e5a42',
-    iris: '#4e3220', glasses: null, style: 'fringe', mouth: 'smile',
+    iris: '#4e3220', glasses: null, style: 'fringe', mouth: 'smile', power: 'ice',
   },
   {
     // brown hair with a long fringe swept to one side, freckles on the nose and cheeks, a sly closed smile
     id: 'rafael', name: 'Rafael', nameHe: 'רפל',
     skin: '#f0c4a2', skinShade: '#dda080', hair: '#5e4128', hairHi: '#8e6a46', brow: '#4a3420',
-    iris: '#4a2e1c', glasses: null, style: 'side', mouth: 'smirk', freckles: '#c98a62',
+    iris: '#4a2e1c', glasses: null, style: 'side', mouth: 'smirk', freckles: '#c98a62', power: 'captain',
   },
 ];
 export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES[0];
@@ -289,7 +289,7 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     }
   }
   if (gl) R.line(-0.09, hy - 0.12, 0.09, hy - 0.12, 0.05, FRAME); // bridge
-  if (laser) for (const s of [-1, 1]) R.line(s * 0.45, hy - 0.05, s * 0.45 + s * 0.2, hy + 3.2, 0.05 + pulse * 0.03, col('#7fe7ff', 0.5));
+  if (laser) for (const s of [-1, 1]) R.ellipse(s * 0.45, hy - 0.05, 0.3 + pulse * 0.04, 0.27 + pulse * 0.04, col('#7fe7ff', 0.25)); // glowing eyes
 
   // nose, cheeks, smirk (closed mouth, one side higher), dimple
   R.ellipse(0, hy + 0.28, 0.13, 0.1, SKIN_SH);

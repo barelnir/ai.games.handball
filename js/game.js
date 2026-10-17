@@ -693,7 +693,7 @@ export class Game {
       used.add(p.hero.name);
     }
     const theirs = new Set(rival.players.map((p) => p.hero.name));
-    const spare = [...SQUADS[1].heroes, ...SQUADS[0].heroes].filter((x) => !used.has(x.name) && !theirs.has(x.name) && x.name !== 'Eitan');
+    const spare = [...SQUADS[1].heroes, ...SQUADS[0].heroes].filter((x) => !used.has(x.name) && !theirs.has(x.name) && x.name !== 'Zamzam');
     for (const p of rival.players) {
       if (!used.has(p.hero.name)) continue;
       const k = Math.max(0, spare.findIndex((x) => x.role === p.role));

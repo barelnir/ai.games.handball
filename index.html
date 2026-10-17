@@ -35,9 +35,6 @@
   <div id="banner" class="banner" aria-live="assertive"><strong id="bTitle"></strong><span id="bSub"></span></div>
   <div class="corner">
     <button id="btnView" class="ico" aria-label="תצוגה: מלמעלה"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="13" height="10" rx="2.2" fill="currentColor"/><path d="M16.5 10.5l5-3v9l-5-3z" fill="currentColor"/></svg></button>
-    <button id="btnMusic" class="ico" aria-label="מוזיקה"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="3" fill="currentColor"/><circle cx="17.5" cy="16" r="3" fill="currentColor"/></svg></button>
-    <button id="btnSound" class="ico" aria-label="צלילים"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
-    <button id="btnFull" class="ico" aria-label="מסך מלא">⤢</button>
     <button id="btnPause" class="ico" aria-label="הפסקה">❚❚</button>
   </div>
   <div id="keys" class="keys">
@@ -61,9 +58,23 @@
 <section id="menu" class="screen">
  <div class="menu-wrap">
   <div class="panel menu-panel">
-    <p class="eyebrow">כדוריד 7 נגד 7</p>
     <h1>כדוריד<br><span>הגיבורים</span></h1>
-    <p class="lede">אתם <b class="c-home">הצרעות</b>. תנצחו את <b class="c-away">הצפעונים</b>!</p>
+    <p class="lede">בחרו קבוצה, בחרו גיבור, ונצחו!</p>
+    <div id="againBox" hidden>
+      <button id="again" class="cta again"><span>שחקו שוב</span><small id="againSub"></small></button>
+    </div>
+    <div class="row">
+      <button id="play" class="cta">יאללה, משחקים!</button>
+      <button id="openSettings" class="ghost">⚙ הגדרות</button>
+      <button id="openRules" class="ghost">איך משחקים</button>
+    </div>
+  </div>
+ </div>
+</section>
+
+<section id="settings" class="screen" hidden>
+  <div class="panel small settings-panel">
+    <h2>הגדרות</h2>
     <div class="opts">
       <fieldset><legend>יריב</legend>
         <div class="seg" data-key="difficulty">
@@ -77,47 +88,31 @@
       </fieldset>
       <fieldset><legend>חוקים</legend>
         <div class="seg" data-key="rules">
-          <button data-v="full">אמיתיים</button><button data-v="arcade">קלים</button>
-        </div>
-      </fieldset>
-      <fieldset><legend>תצוגה</legend>
-        <div class="seg" data-key="view">
-          <button data-v="top">מלמעלה</button><button data-v="tv">טלוויזיה</button>
+          <button data-v="arcade">קלים</button><button data-v="full">אמיתיים</button>
         </div>
       </fieldset>
     </div>
-    <div class="row">
-      <button id="play" class="cta">יאללה, משחקים!</button>
-      <button id="openRules" class="ghost">איך משחקים</button>
-    </div>
-    <p class="fine">גרפיקה: <span id="gfx">…</span></p>
+    <div class="row"><button class="cta" data-close="settings">סגירה</button><p class="fine">גרפיקה: <span id="gfx">…</span></p></div>
   </div>
- </div>
 </section>
-
 
 <section id="pick" class="screen" hidden>
   <div class="pick-panel">
     <header class="pick-head">
       <button id="pickBack" class="ghost">חזרה</button>
-      <div>
-        <p class="eyebrow" id="pickStep">שלב 1 מתוך 4</p>
-        <h2 id="pickTitle">בחרו נבחרת</h2>
-      </div>
-      <button id="lineupGo" class="cta" hidden>יאללה, משחקים!</button>
+      <h2 id="pickTitle">באיזו קבוצה משחקים?</h2>
     </header>
-    <div class="pick-grid" id="pickTeams"></div>
-    <div class="pick-grid" id="pickPowers" hidden></div>
-    <div id="pickLineup" class="lineup" hidden>
-      <div class="lu-slots" id="luSlots"></div>
-      <p class="lu-hint" id="luHint">בחרו עמדה, ואז בחרו מי משחק בה</p>
-      <div class="lu-pool" id="luPool"></div>
+    <div id="stepTeam">
+      <div class="seg club-tabs" id="teamTabs"><button data-g="league">ליגת הילדים</button><button data-g="nation">נבחרות</button></div>
+      <div class="team-grid" id="teamCards"></div>
     </div>
-    <div id="pickMatch" class="match-pick" hidden>
-      <div class="seg club-tabs" id="clubTabs"><button data-g="league">ליגת הילדים</button><button data-g="nation">נבחרות</button></div>
-      <div class="club-row"><span class="club-label">אנחנו משחקים בתור</span><div class="club-chips" id="myClubs"></div></div>
-      <p class="club-label">נגד מי משחקים?</p>
-      <div class="lu-slots" id="rivalCards"></div>
+    <div id="stepKids" hidden>
+      <div class="kid-row" id="kidCards"></div>
+      <div class="kid-foot">
+        <button id="powerChip" class="chip"></button>
+        <button id="oppChip" class="chip opp"></button>
+        <button id="go" class="cta">יאללה, משחקים!</button>
+      </div>
     </div>
   </div>
 </section>
@@ -127,7 +122,10 @@
     <h2>הפסקה</h2>
     <div class="col">
       <button id="resume" class="cta">ממשיכים</button>
-      <button id="restart" class="ghost">משחק חדש</button>
+      <button id="restart" class="ghost">מתחילים מחדש</button>
+      <button id="btnMusic" class="ghost">מוזיקה</button>
+      <button id="btnSound" class="ghost">צלילים</button>
+      <button id="btnFull" class="ghost">מסך מלא</button>
       <button id="toRules" class="ghost">איך משחקים</button>
       <button id="toMenu" class="ghost">לתפריט</button>
     </div>
@@ -141,6 +139,7 @@
     <table class="stats" id="brStats"></table>
     <div class="col">
       <button id="brNext" class="cta">למחצית השנייה</button>
+      <button id="brNewOpp" class="ghost" hidden>יריב חדש</button>
       <button id="brMenu" class="ghost">לתפריט</button>
     </div>
   </div>
@@ -156,12 +155,12 @@
       <article>
         <h3>שליטה</h3>
         <ul class="ctl">
-          <li><b>תזוזה</b> החצים משמאל / WASD</li>
-          <li><b>מסירה</b> מסירה / J</li>
-          <li><b>זריקה</b> להחזיק זריקה ולעזוב / K</li>
-          <li><b>חטיפה</b> חטיפה / K</li>
-          <li><b>החלפת שחקן</b> החלף / J</li>
-          <li><b>כוח מיוחד</b> כוח (כשמוכן) / L</li>
+          <li><b>תזוזה</b> החצים משמאל<span class="kb"> / WASD</span></li>
+          <li><b>מסירה</b> כפתור מסירה<span class="kb"> / J</span></li>
+          <li><b>זריקה</b> להחזיק את זריקה ולעזוב<span class="kb"> / K</span></li>
+          <li><b>חטיפה</b> כשאין לכם כדור: חטיפה<span class="kb"> / K</span></li>
+          <li><b>החלפת שחקן</b> כשאין לכם כדור: החלף<span class="kb"> / J</span></li>
+          <li><b>כוח מיוחד</b> כוח, כשהוא מוכן<span class="kb"> / L</span></li>
         </ul>
       </article>
       <article>

@@ -74,19 +74,20 @@ async function waitGame(page, secs) {
 }
 const me = (page) => G(page, () => { const g = handball.game, c = g.controlled; return c && { id: c.id, x: c.x, y: c.y, sp: Math.hypot(c.vx, c.vy), state: g.state, stick: handball.input.stick.id }; });
 
-async function startMatch(P, team = 0, power = 0) {
+const POWER_LABEL = { lightning: 'ברק', fire: 'אש', muscle: 'שרירים', ice: 'קרח', captain: 'קפטן', random: 'הפתעה' };
+// home -> team (הצרעות) -> captain -> play; optionally cycle the captain's power chip to `power`
+async function startMatch(P, kid = 0, power = null) {
   const { page, t } = P;
   await page.goto(url);
   await wait(page, 1200);
   await t.tapEl('#play');
   await wait(page, 300);
-  await t.tapEl('#pickTeams .pick-card', team);
+  await t.tapEl('#teamCards .lu-card:visible', 0);
   await wait(page, 300);
-  await t.tapEl('#pickPowers .pick-card', power);
-  await wait(page, 300);
-  await t.tapEl('#lineupGo'); // players
-  await wait(page, 300);
-  await t.tapEl('#lineupGo'); // clubs
+  await t.tapEl('.kid-card .kid-face', kid);
+  await wait(page, 200);
+  for (let i = 0; power && i < 7 && !(await page.textContent('#powerChip')).includes(POWER_LABEL[power]); i++) { await t.tapEl('#powerChip'); await wait(page, 60); }
+  await t.tapEl('#go');
   await page.waitForFunction(() => handball.mode === 'play' && handball.game.state === 'play', null, { timeout: 15000 });
 }
 
@@ -113,26 +114,29 @@ await run('flow', async () => {
   const font = await G(page, () => getComputedStyle(document.querySelector('h1')).fontFamily + ' ' + getComputedStyle(document.querySelector('h1')).fontWeight);
   check(/Rubik/.test(font) && /900/.test(font), 'title uses the heavy Hebrew font', font);
   await page.screenshot({ path: `${out}/01-menu.png` });
-  await t.tapEl('#play');
+  check(await page.isVisible('#play') && !(await page.isVisible('#againBox')), 'first visit: one big play button');
+  let taps = 0;
+  await t.tapEl('#play'); taps++;
   await wait(page, 400);
-  check(await page.isVisible('#pickTeams'), 'tap Play -> pick a team');
-  const teams = await page.locator('#pickTeams .pick-card b').allTextContents();
-  check(teams.length === 4 && ['אייל', 'אמה', 'איתן', 'רפל'].every((n) => teams.some((s) => s.includes(n))), 'four kids\' teams, Rafael too', teams.join(' | '));
+  check(await page.isVisible('#stepTeam'), 'tap Play -> pick a team');
+  const tabs = await page.locator('#teamTabs button').allTextContents();
+  check(tabs.join() === 'ליגת הילדים,נבחרות', 'two tabs: kids\' league and national teams', tabs.join(' | '));
+  const league = await page.locator('#teamCards .lu-card:visible b').allTextContents();
+  check(league[0] === 'הצרעות' && league.includes('א.כ. נס ציונה'), 'הצרעות first, then the kids\' league', league.join(' | '));
   await page.screenshot({ path: `${out}/02-pick-team.png` });
-  await t.tapEl('#pickTeams .pick-card', 2);
+  await t.tapEl('#teamCards .lu-card:visible', 0); taps++;
   await wait(page, 400);
-  const powers = await page.locator('#pickPowers .pick-card b').allTextContents();
-  check(powers.length === 5 && powers.some((s) => s.includes('קרח')), 'five powers incl. ice', powers.join(' | '));
-  await page.screenshot({ path: `${out}/03-pick-power.png` });
-  await t.tapEl('#pickPowers .pick-card', powers.findIndex((s) => s.includes('קרח')));
-  await wait(page, 400);
-  check(await page.isVisible('#pickLineup') && (await page.textContent('#pickStep')).includes('3'), 'then step 3: pick the players');
-  await page.screenshot({ path: `${out}/03b-pick-players.png` });
-  await t.tapEl('#lineupGo');
-  await wait(page, 400);
-  check(await page.isVisible('#pickMatch') && (await page.textContent('#pickStep')).includes('4'), 'then step 4: our club and the opponent');
-  await page.screenshot({ path: `${out}/03c-pick-clubs.png` });
-  await t.tapEl('#lineupGo');
+  const kids = await page.locator('.kid-card b').allTextContents();
+  check(kids.length === 4 && ['אייל', 'אמה', 'איתן', 'רפל'].every((n) => kids.includes(n)), 'four kids, רפל too', kids.join(' | '));
+  await t.tapEl('.kid-card:has-text("אייל") .kid-face'); taps++;
+  await wait(page, 300);
+  check((await page.textContent('#powerChip')).includes('קרח'), 'Eyal comes with his own power: ice', await page.textContent('#powerChip'));
+  check((await page.textContent('#oppChip')).includes('הצפעונים') && await page.isDisabled('#oppChip'), 'הצרעות always play הצפעונים (no shuffle)');
+  const noOverflow = await G(page, () => [...document.querySelectorAll('#pick button')].filter((b) => b.offsetParent).every((b) => { const r = b.getBoundingClientRect(); return r.bottom <= innerHeight + 1 && r.left >= -1 && r.right <= innerWidth + 1; }));
+  check(noOverflow, 'everything on the kids screen fits the phone');
+  await page.screenshot({ path: `${out}/03-pick-kids.png` });
+  await t.tapEl('#go'); taps++;
+  check(taps === 4, 'four taps from opening to the match');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 5000 });
   await wait(page, 1500);
   check(await page.isVisible('#hud') && await page.isVisible('#stick') && await page.isVisible('#btnB'), 'match starts with arrow pad and buttons');
@@ -243,7 +247,7 @@ await run('power', async () => {
   for (let i = 0; i < keys.length; i++) {
     const P = await phone();
     const { page, t, errors } = P;
-    await startMatch(P, i % 3, i);
+    await startMatch(P, i % 4, keys[i]);
     check(await G(page, () => handball.game.template.key) === keys[i], `${keys[i]}: picked`);
     check(await G(page, () => document.querySelector('#btnP').classList.contains('ready')), `${keys[i]}: POWER is full at kick-off`);
     // POWER at a throw-off / free throw works too
@@ -310,7 +314,7 @@ await run('menus', async () => {
   const P = await phone();
   const { page, t, errors } = P;
   for (let k = 0; k < 3; k++) {
-    await startMatch(P, k, k);
+    await startMatch(P, k);
     await t.tapEl('#btnPause'); await wait(page, 200);
     await t.tapEl('#toRules'); await wait(page, 200);
     check(await page.isVisible('#rules'), `round ${k + 1}: How to play opens`);
@@ -328,103 +332,107 @@ await run('menus', async () => {
 
 // ---------------------------------------------------------------- 7. a whole match, fast-forwarded
 // ---------------------------------------------------------------- pick the players
-await run('lineup', async () => {
+await run('kids', async () => {
   const P = await phone();
   const { page, t, errors } = P;
-  await page.goto(url);
-  await page.evaluate(() => localStorage.clear());
-  await page.reload(); await wait(page, 1200);
+  await page.goto(url); await wait(page, 1200);
   await t.tapEl('#play'); await wait(page, 300);
-  await t.tapEl('#pickTeams .pick-card', 0); await wait(page, 300);
-  await t.tapEl('#pickPowers .pick-card', 0); await wait(page, 400);
-  const slots = () => page.locator('#luSlots .lu-card b').allTextContents();
-  const s0 = await slots();
-  check(s0.length === 7 && s0.includes('איתן'), 'seven positions, your kid in the middle', s0.join(' | '));
-  check(!(await page.locator('#luPool .lu-card:visible b').allTextContents()).includes('איתן'), 'your own kid is not in the list');
-  // tap a position, then a player: Emma at left back, Eyal at right back
-  await t.tapEl('#luSlots .lu-card', 2); await t.tapEl('#luPool .lu-card:has-text("אמה")');
-  await t.tapEl('#luSlots .lu-card', 4); await t.tapEl('#luPool .lu-card:has-text("אייל")');
-  let s1 = await slots();
-  check(s1[2] === 'אמה' && s1[4] === 'אייל', 'Emma and Eyal join the team', s1.join(' | '));
-  // picking someone who already plays swaps the two places
-  await t.tapEl('#luSlots .lu-card', 1); await t.tapEl('#luPool .lu-card:has-text("אמה")');
-  s1 = await slots();
-  check(s1[1] === 'אמה' && s1[2] === s0[1], 'picking a player twice swaps the places', s1.join(' | '));
-  check(new Set(s1).size === 7, 'nobody plays twice', s1.join(' | '));
-  // the middle (your kid with the power) can't be changed
-  await t.tapEl('#luSlots .lu-card', 3); await t.tapEl('#luPool .lu-card:has-text("זיפ")');
-  check((await slots())[3] === 'איתן', 'your kid stays in the middle');
-  await page.screenshot({ path: `${out}/38-lineup.png` });
-  await t.tapEl('#lineupGo'); await wait(page, 300);
-  await t.tapEl('#lineupGo');
+  await t.tapEl('#teamCards .lu-card:has-text("א.כ. נס ציונה")'); await wait(page, 300);
+  const cls = (n) => G(page, (n) => [...document.querySelectorAll('.kid-card')].find((k) => k.textContent.includes(n)).className, n);
+  check(/cap/.test(await cls('איתן')) && !/in/.test(await cls('אמה')), 'only the captain is on the team at first');
+  // Eyal's power to fire, then Emma is captain (her own fire), then Eyal again: still fire
+  await t.tapEl('.kid-card:has-text("אייל") .kid-face');
+  for (let i = 0; i < 7 && !(await page.textContent('#powerChip')).includes('אש'); i++) await t.tapEl('#powerChip');
+  await t.tapEl('.kid-card:has-text("אמה") .kid-face');
+  check((await page.textContent('#powerChip')).includes('אש'), 'Emma has her own power (fire)', await page.textContent('#powerChip'));
+  await t.tapEl('.kid-card:has-text("אייל") .kid-face');
+  check((await page.textContent('#powerChip')).includes('אש'), 'each kid keeps the power they picked', await page.textContent('#powerChip'));
+  // friends: Emma is in (she was captain before); add רפל, keep איתן out
+  await t.tapEl('.kid-card:has-text("רפל") .kid-toggle');
+  if (/in/.test(await cls('איתן'))) await t.tapEl('.kid-card:has-text("איתן") .kid-toggle');
+  check(/in/.test(await cls('רפל')) && /in/.test(await cls('אמה')) && !/in/.test(await cls('איתן')), 'friends are added and removed with one tap');
+  // the opponent chip re-rolls within the kids' league and never picks us
+  const seen = new Set();
+  for (let i = 0; i < 8; i++) {
+    const txt = await page.textContent('#oppChip');
+    seen.add(txt.replace(/ · עם .*/, '').replace(' 🔀', ''));
+    if (/עם (אייל|אמה|רפל)/.test(txt)) check(false, 'the computer\'s kid is never one of ours', txt);
+    await t.tapEl('#oppChip'); await wait(page, 50);
+  }
+  const opps = [...seen].join(' | ');
+  check(seen.size >= 3 && ![...seen].some((x) => /נס ציונה|הצרעות|ישראל|ספרד/.test(x)), 'the opponent re-rolls among other kids\' clubs', opps);
+  await page.screenshot({ path: `${out}/38-kids.png` });
+  const chip = await page.textContent('#oppChip');
+  await t.tapEl('#go');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
-  const teams = await G(page, () => handball.game.teams.map((tm) => tm.players.map((p) => p.hero.nameHe)));
-  check(teams[0].includes('אמה') && teams[0].includes('אייל') && teams[0].includes('איתן'), 'all three kids play together', teams[0].join(','));
-  check(!teams[1].some((n) => teams[0].includes(n)), 'the computer\'s team has nobody from yours', teams[1].join(','));
-  // the line-up is remembered
-  await page.reload(); await wait(page, 1200);
-  await t.tapEl('#play'); await wait(page, 300);
-  await t.tapEl('#pickTeams .pick-card', 0); await wait(page, 300);
-  await t.tapEl('#pickPowers .pick-card', 0); await wait(page, 400);
-  const s2 = await slots();
-  check(s2.join() === s1.join(), 'the line-up is remembered', s2.join(' | '));
-  // picking Emma's team: Emma moves to the middle and leaves the list; her old place gets someone else
-  await t.tapEl('#pickBack'); await t.tapEl('#pickBack'); await wait(page, 300);
-  await t.tapEl('#pickTeams .pick-card', 1); await wait(page, 300);
-  await t.tapEl('#pickPowers .pick-card', 0); await wait(page, 400);
-  const s3 = await slots();
-  check(s3[3] === 'אמה' && s3.filter((n) => n === 'אמה').length === 1 && new Set(s3).size === 7, 'switching kids keeps the line-up valid', s3.join(' | '));
-  check(errors.length === 0, 'no errors in the line-up step', errors.join(' | '));
+  const g = await G(page, () => { const g = handball.game; return { mine: g.teams[0].players.map((p) => p.hero.nameHe), theirs: g.teams[1].players.map((p) => p.hero.nameHe), cb: g.teams[0].players.find((p) => p.role === 'CB').hero.nameHe, power: g.template.key, teams: g.teams.map((x) => x.kit.he), rivalKid: g.rivalProfile ? g.rivalProfile.nameHe : null }; });
+  check(g.cb === 'אייל' && g.power === 'fire', 'Eyal is captain with the power he picked', `${g.cb} ${g.power}`);
+  check(g.mine.includes('אמה') && g.mine.includes('רפל') && !g.mine.includes('איתן') && new Set(g.mine).size === 7, 'the friends play, nobody twice', g.mine.join(','));
+  check(!g.mine.some((n) => ['סליל', 'היס', 'ניב', 'ארס', 'רעשן', 'זחל', 'פייתון'].includes(n)), 'no Vipers on our team', g.mine.join(','));
+  check(g.teams[0] === 'א.כ. נס ציונה' && chip.includes(g.teams[1]) && (!g.rivalKid || chip.includes(g.rivalKid)), 'the match is exactly what the chip said', `${chip} -> ${g.teams.join(' - ')} ${g.rivalKid || ''}`);
+  check(errors.length === 0, 'no errors on the kids screen', errors.join(' | '));
   await page.close();
 });
 
-// ---------------------------------------------------------------- kids' league clubs
-await run('clubs', async () => {
+await run('teams', async () => {
   const P = await phone();
   const { page, t, errors } = P;
-  await page.goto(url);
-  await page.evaluate(() => localStorage.clear());
-  await page.reload(); await wait(page, 1200);
+  await page.goto(url); await wait(page, 1200);
+  // national teams: רפל as captain for Israel
   await t.tapEl('#play'); await wait(page, 300);
-  await t.tapEl('#pickTeams .pick-card', 0); await wait(page, 300);
-  await t.tapEl('#pickPowers .pick-card', 0); await wait(page, 300);
-  await t.tapEl('#lineupGo'); await wait(page, 400);
-  const chips = await page.locator('#myClubs .club-chip').allTextContents();
-  check(chips.length >= 4 && chips[0].includes('איתן'), 'our team: the kid\'s team or a club', chips.join(' | '));
-  const rivals = await page.locator('#rivalCards .lu-card:visible b').allTextContents();
-  check(rivals.length >= 4, 'opponents from the kids\' league', rivals.join(' | '));
-  // play as the first club against the second
-  await t.tapEl('#myClubs .club-chip', 1);
-  const mine = (await page.locator('#myClubs .club-chip').nth(1).textContent()).trim();
-  check(!(await page.locator('#rivalCards .lu-card:visible b').allTextContents()).includes(mine), 'a club can\'t play itself');
-  await t.tapEl('#rivalCards .lu-card:visible', 1);
-  const theirs = (await page.locator('#rivalCards .lu-card.sel b').textContent()).trim();
-  await page.screenshot({ path: `${out}/39-clubs.png` });
-  await t.tapEl('#lineupGo');
+  await t.tapEl('#teamTabs button[data-g="nation"]'); await wait(page, 200);
+  const nations = await page.locator('#teamCards .lu-card:visible b').allTextContents();
+  check(nations.includes('ישראל') && nations.includes('ספרד') && nations.length >= 10, 'national teams to pick', nations.join(' | '));
+  await page.screenshot({ path: `${out}/39-nations.png` });
+  await t.tapEl('#teamCards .lu-card:visible:has-text("ישראל")'); await wait(page, 300);
+  check((await page.textContent('#pickTitle')).includes('ישראל'), 'the kids screen names the team', await page.textContent('#pickTitle'));
+  await t.tapEl('.kid-card:has-text("רפל") .kid-face');
+  const chip = await page.textContent('#oppChip');
+  await t.tapEl('#go');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
-  const k = await G(page, () => handball.game.teams.map((tm) => ({ he: tm.kit.he, shirt: tm.kit.shirt })));
-  check(k[0].he === mine && k[1].he === theirs, 'the match uses both clubs', `${k[0].he} - ${k[1].he}`);
-  check(k[0].shirt !== k[1].shirt, 'the two teams wear different shirts', `${k[0].shirt} / ${k[1].shirt}`);
+  const k = await G(page, () => ({ teams: handball.game.teams.map((tm) => tm.kit.he), shirts: handball.game.teams.map((tm) => tm.kit.shirt), badge: handball.game.teams[0].kit.badge, cb: handball.game.teams[0].players.find((p) => p.role === 'CB').hero.nameHe }));
+  check(k.teams[0] === 'ישראל' && k.cb === 'רפל' && chip.includes(k.teams[1]), 'Israel with רפל against the nation on the chip', `${k.teams.join(' - ')} · ${k.cb}`);
+  check(k.badge === 'israel', 'Israel wears the flag on the shirt', k.badge);
+  check(k.shirts[0] !== k.shirts[1], 'the two teams wear different shirts', k.shirts.join(' / '));
   const board = await G(page, () => [...document.querySelectorAll('.board .abbr')].map((e) => e.textContent).join(' | '));
-  check(!/צרעות|צפעונים/.test(board), 'the scoreboard shows the clubs', board);
-  // national teams: Rafael's team as Israel against Spain
+  check(!/צרעות|צפעונים/.test(board), 'the scoreboard shows the teams', board);
+  // restart keeps the same match
+  await t.tapEl('#btnPause'); await t.tapEl('#restart'); await wait(page, 500);
+  const k2 = await G(page, () => handball.game.teams.map((tm) => tm.kit.he));
+  check(k2.join() === k.teams.join(), '"מתחילים מחדש" keeps the same teams', k2.join(' - '));
+  // back to the home screen: "play again" in one tap
+  await t.tapEl('#btnPause'); await t.tapEl('#toMenu'); await wait(page, 400);
+  await page.reload(); await wait(page, 1200);
+  check(await page.isVisible('#again') && (await page.textContent('#againSub')).includes('ישראל'), 'home: "שחקו שוב" with last time\'s match', await page.textContent('#againSub'));
+  await page.screenshot({ path: `${out}/01b-home-again.png` });
+  await t.tapEl('#again');
+  await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
+  const k3 = await G(page, () => handball.game.teams.map((tm) => tm.kit.he));
+  check(k3.join() === k.teams.join(), 'one tap plays the same match again', k3.join(' - '));
+  // the phone's back button: in a match it pauses; on the kids screen it goes back to the teams
+  await page.goBack(); await wait(page, 300);
+  check(await G(page, () => handball.mode) === 'paused', 'back button in a match pauses');
+  await t.tapEl('#toMenu'); await wait(page, 300);
+  await t.tapEl('#play'); await wait(page, 300); await t.tapEl('#teamCards .lu-card:visible', 0); await wait(page, 300);
+  await page.goBack(); await wait(page, 300);
+  check(await page.isVisible('#stepTeam'), 'back button on the kids screen goes back to the teams');
+  // wording: one meaning for "נבחרת", and the right spelling of רפל
+  const text = await G(page, () => document.body.innerText + [...document.querySelectorAll('[hidden]')].map((e) => e.textContent).join(' '));
+  check(!/הנבחרת של|רפאל/.test(text), 'no "הנבחרת של" and no "רפאל" anywhere');
+  // settings live in a small window and reach the match
+  await t.tapEl('#pickBack'); await wait(page, 300);
+  await t.tapEl('#openSettings'); await t.tapEl('.seg[data-key="half"] button[data-v="180"]'); await t.tapEl('[data-close="settings"]');
+  await t.tapEl('#again');
+  await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
+  check(await G(page, () => handball.game.opts.halfLen) === 180, 'settings reach the match');
+  // old saved data (handball7) carries over
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('handball7', JSON.stringify({ hero: 'emma', myClub: 'holon', half: '600', view: 'night' })); });
   await page.reload(); await wait(page, 1200);
   await t.tapEl('#play'); await wait(page, 300);
-  await t.tapEl('#pickTeams .pick-card:has-text("רפל")'); await wait(page, 300);
-  await t.tapEl('#pickPowers .pick-card', 1); await wait(page, 300);
-  await t.tapEl('#lineupGo'); await wait(page, 400);
-  await t.tapEl('#clubTabs button[data-g="nation"]'); await wait(page, 200);
-  const nations = await page.locator('#rivalCards .lu-card:visible b').allTextContents();
-  check(nations.includes('ספרד') && nations.includes('ישראל') && nations.length >= 8, 'national teams to pick', nations.join(' | '));
-  await t.tapEl('#myClubs .club-chip:has-text("ישראל")');
-  await t.tapEl('#rivalCards .lu-card:visible:has-text("ספרד")');
-  await page.screenshot({ path: `${out}/39b-nations.png` });
-  await t.tapEl('#lineupGo');
-  await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
-  const k2 = await G(page, () => ({ teams: handball.game.teams.map((tm) => tm.kit.he), badge: handball.game.teams[0].kit.badge, cb: handball.game.teams[0].players.find((p) => p.role === 'CB').hero.nameHe }));
-  check(k2.badge === 'israel', 'Israel wears the flag on the shirt', k2.badge);
-  check(k2.teams[0] === 'ישראל' && k2.teams[1] === 'ספרד' && k2.cb === 'רפל', 'Israel (with Rafael) against Spain', `${k2.teams.join(' - ')} · ${k2.cb}`);
-  check(errors.length === 0, 'no errors with clubs', errors.join(' | '));
+  check(await G(page, () => document.querySelector('#teamCards .lu-card.sel b').textContent) === 'הכדוריד חולון', 'old saved team carries over');
+  await t.tapEl('#teamCards .lu-card.sel'); await wait(page, 300);
+  check(/cap/.test(await G(page, () => [...document.querySelectorAll('.kid-card')].find((k) => k.textContent.includes('אמה')).className)), 'old saved hero becomes the captain');
+  check(errors.length === 0, 'no errors with teams', errors.join(' | '));
   await page.close();
 });
 
@@ -459,11 +467,7 @@ await run('view', async () => {
   // the choice is remembered; an old "night" choice becomes the TV camera
   await page.reload(); await wait(page, 1200);
   check(await view() === 'tv', 'the view is remembered after a reload');
-  check(await page.isVisible('.seg[data-key="view"] button.on[data-v="tv"]'), 'the menu shows the chosen view');
-  check(await page.locator('.seg[data-key="view"] button').count() === 2, 'the menu offers two views');
-  await t.tapEl('.seg[data-key="view"] button[data-v="top"]');
-  check(await view() === 'top', 'the view can also be picked in the menu');
-  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('handball7') || '{}'); s.view = 'night'; localStorage.setItem('handball7', JSON.stringify(s)); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('handball7', JSON.stringify({ view: 'night' })); });
   await page.reload(); await wait(page, 1200);
   check(await view() === 'tv', 'an old night setting opens the TV camera');
   check(errors.length === 0, 'no errors while switching views', errors.join(' | '));
@@ -480,7 +484,7 @@ await run('match', async () => {
   await page.evaluate(() => { localStorage.setItem('handball7', JSON.stringify({ half: '180', music: false })); });
   await page.reload();
   await page.clock.runFor(1500);
-  await page.evaluate(() => { document.querySelector('#play').click(); document.querySelector('#pickTeams .pick-card').click(); document.querySelector('#pickPowers .pick-card').click(); document.querySelector('#lineupGo').click(); document.querySelector('#lineupGo').click(); });
+  await page.evaluate(() => { document.querySelector('#play').click(); document.querySelector('#teamCards .lu-card').click(); document.querySelector('#go').click(); });
   await page.clock.runFor(500);
   check(await page.evaluate(() => handball.mode === 'play'), 'the match starts after the three steps');
   for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
@@ -490,6 +494,7 @@ await run('match', async () => {
   check((await page.evaluate(() => handball.game.teams.map((t) => t.defX))).join() === '40,0', 'teams switch ends');
   for (let i = 0; i < 40 && !(await page.isVisible('#break')); i++) await page.clock.runFor(5000);
   check(/סיום/.test(await page.textContent('#brEyebrow')), 'full-time screen', await page.textContent('#brScore'));
+  check(await page.isVisible('#brNext') && (await page.textContent('#brNext')).includes('עוד משחק') && !(await page.isVisible('#brNewOpp')), 'end: "עוד משחק!" (no new opponent for הצרעות)');
   check(errors.length === 0, 'no page errors (match)', errors.slice(0, 2).join(' | '));
   await page.close();
 });

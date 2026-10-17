@@ -70,21 +70,23 @@ In the TV view the renderer draws the court as one texture in perspective (a ful
 
 ## Heroes and powers
 
-**Play** opens four steps:
-1. Pick a team: Eitan's, Emma's, Eyal's or Rafael's team. The kid is drawn from a photo and plays centre back.
-2. Pick a special power.
-3. Pick the players: tap a position, then the hero who plays there. You can choose the other two kids (so all three can play together) or any cartoon hero from either squad. Your kid always stays centre back with the power. Picking someone who already plays swaps the two places. The line-up is remembered, and the computer's team swaps out any hero you took, so nobody plays for both sides.
-4. Pick the teams: play as the kid's team, a club from the kids' league or a national team (`js/clubs.js`), and pick the opponent (the Vipers, a club or a national team). Clubs have names and shirt colours only, no badges. When both shirts look alike, the opponent wears its white away kit.
+**The flow** (decided with a UX and a product review: as few taps as possible, one meaning per word):
+- **Home:** "יאללה, משחקים!" the first time. After that, a big **"שחקו שוב"** card replays last time's match in one tap. There is also "משחק חדש", "⚙ הגדרות" (difficulty, half length, rules) and "איך משחקים".
+- **"באיזו קבוצה משחקים?"** has two tabs:
+  - **ליגת הילדים:** הצרעות first, then the clubs.
+  - **נבחרות:** national teams, with their flags.
+  - Tapping a team moves on.
+- **"מי משחק ב…?"** shows the four kids from the photos (איתן, אמה, אייל, רפל):
+  - **Captain:** tap a kid to make them captain. The captain plays centre back with the power.
+  - **Friends:** "＋ להוסיף" puts another kid on the team. Hornets cartoon heroes fill the other places.
+  - **Power:** the power chip starts on the kid's own power (איתן ⚡ ברק, אמה 🔥 אש, אייל ❄ קרח, רפל ⭐ קפטן). Tapping it cycles through the powers, ending with 🎲 הפתעה. Each kid's choice is remembered.
+  - **Opponent:** the opponent chip shows who you play against. It comes from your group: club against club, nation against nation, and הצרעות always against הצפעונים. Tapping 🔀 draws another opponent. Sometimes a kid who isn't on your team leads the opponent, and the chip says so.
+- **Match:** the corner buttons are the camera (top or TV) and pause. On phones, fullscreen turns on by itself.
+- **Pause:** ממשיכים, מתחילים מחדש (same match), music, sounds, fullscreen, איך משחקים, לתפריט.
+- **End of match:** "עוד משחק!" (same match). "יריב חדש" re-draws only the opponent, but not for הצרעות.
+- **Back button:** the phone's back button goes back one screen, and in a match it pauses.
 
-The match then starts. 40% of the time the computer's team is led by one of the other kids. Otherwise it is led by Venom. Either way, the computer's hero gets a random power and uses it near your goal.
-
-| Power | Ball | What it does |
-| --- | --- | --- |
-| Lightning | glowing ball with small lightning bolts, electric trail | the keeper freezes, can't be blocked |
-| Fire | fireball with a ribbon of flame | can't be blocked, keeper rarely saves |
-| Muscle | yellow ball with shock-wave rings | shot twice as fast |
-| Ice (Eyal's favourite) | ball with orbiting ice crystals, frosty trail | every rival is frozen in a block of ice for 3 s |
-| Captain | white ball with stars circling it | the whole team runs 30% faster for 8 s |
+Choices are saved under `handball8`. Older `handball7` data carries over once.
 
 **POWER button:** it starts full and refills in under 30 seconds. The computer's meter fills about 3x slower. Tapping POWER does one of two things:
 - **Your team has the ball:** the match freezes for a full-screen close-up of your hero (big head, flexing muscles, in the power's costume). The ball is then powered for 10 seconds, in the hands of whoever has it.
@@ -104,9 +106,9 @@ The match then starts. 40% of the time the computer's team is led by one of the 
 
 - `npm test`: headless matches (`tests/sim.mjs`), every power end to end (`tests/power.mjs`), the pass magnet (`tests/pass.mjs`) and the line-up (`tests/lineup.mjs`).
 - `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. It covers:
-  - the pick flow (team, power, players), Hebrew labels and fonts, and the music level;
-  - picking the players: all three kids together, swapping, no hero on both teams, remembering the line-up;
-  - the clubs: playing as a club against a club, different shirts, the scoreboard names;
+  - the flow (4 taps from opening to the match), Hebrew labels and fonts, and the music level;
+  - the kids screen: captain, friends, each kid's own power, the opponent chip, and the match matching the chip;
+  - teams: national teams, flags, different shirts, "שחקו שוב" in one tap, restart keeps the match, back button, settings, old saved data;
   - the joystick: never moves by itself, always stops on release, two thumbs, cancelled touches, a stale touch replaced by a new one;
   - double-tap zoom;
   - every power through the real POWER button, including armed powers;
