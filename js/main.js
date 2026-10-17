@@ -23,12 +23,12 @@ let mode = 'menu';           // menu | play | paused | break
 let acc = 0, last = 0, now = 0;
 let excite = 0;
 const cam = { x: W / 2, y: H / 2, ppm: 20 };
-// Views: 'top' (camera above the court), 'tv' (TV camera like FIFA), 'night' (TV camera, night game)
-const VIEWS = ['top', 'tv', 'night'];
-const VIEW_NAMES = { top: 'מלמעלה', tv: 'טלוויזיה', night: 'לילה' };
+// Views: 'top' (camera above the court) and 'tv' (TV camera like FIFA)
+const VIEWS = ['top', 'tv'];
+const VIEW_NAMES = { top: 'מלמעלה', tv: 'טלוויזיה' };
 const tvCam = new TVCam();
 let floorReady = false;
-const isTV = () => settings.view === 'tv' || settings.view === 'night';
+const isTV = () => settings.view === 'tv';
 const input = new Input($('#touch'));
 const sound = new Sound();
 sound.muted = !settings.sound;
@@ -228,6 +228,7 @@ function bindUI() {
     vb.dataset.view = settings.view;
     document.querySelectorAll('.seg[data-key="view"] button').forEach((b) => b.classList.toggle('on', b.dataset.v === settings.view));
   };
+  if (settings.view === 'night') settings.view = 'tv'; // the night view is gone
   if (!VIEWS.includes(settings.view)) settings.view = 'top';
   syncView();
   vb.addEventListener('click', () => {
@@ -332,12 +333,12 @@ function handleEvents() {
 function updateCamera(dt) {
   const c = R.canvas;
   if (isTV()) {
-    let tx = W / 2;
+    let tx = W / 2, ty = CY;
     if (mode !== 'menu' && mode !== 'pick') {
       const b = game.ball, r = b.owner || b;
-      tx = r.x + (game.teams[game.poss].defX === 0 ? 1 : -1) * 2.5;
+      tx = r.x + (game.teams[game.poss].defX === 0 ? 1 : -1) * 2.5; ty = r.y;
     }
-    tvCam.update(c.width, c.height, tx, dt, false);
+    tvCam.update(c.width, c.height, tx, ty, dt, false);
     return;
   }
   let ppm, tx, ty;
@@ -373,10 +374,10 @@ function render() {
   } else trail.length = 0;
   if (isTV()) {
     if (!floorReady) { R.setFloor(makeFloor(createRenderer).canvas, [-14, -12, W + 14, H + 12]); floorReady = true; }
-    if (!tvCam.ready || tvCam.w !== R.canvas.width || tvCam.h !== R.canvas.height) tvCam.update(R.canvas.width, R.canvas.height, tvCam.x, 0, true);
+    if (!tvCam.ready || tvCam.w !== R.canvas.width || tvCam.h !== R.canvas.height) tvCam.update(R.canvas.width, R.canvas.height, tvCam.x, tvCam.y, 0, true);
     const my = input.state.my;
     renderTV(R, tvCam, {
-      game: g, now, excite, night: settings.view === 'night', trail, mode, hint: HINT, soft: SOFT,
+      game: g, now, excite, trail, mode, hint: HINT, soft: SOFT,
       aimY: Math.abs(my) > 0.25 ? my * 1.3 : 0, ruleDots: drawRuleDots,
     });
     return;

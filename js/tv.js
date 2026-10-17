@@ -11,24 +11,27 @@ const STAND_Y = -2.2; // the floor ends here; the stands rise behind it
 
 // ------------------------------------------------------------------ camera
 export class TVCam {
-  constructor() { this.x = CX; this.ready = false; }
-  // w, h: canvas pixels. tx: where the action is (metres along the court).
-  update(w, h, tx, dt, snap) {
-    const nearY = 0.92, farY = 0.27;
-    let height = 12, back = 15, f, hor;
-    // on narrow screens move the camera back so you still see at least 18 m of the near sideline
-    for (let i = 0; i < 30; i++) {
-      f = ((nearY - farY) * h) / (height * (1 / back - 1 / (back + H)));
-      if ((w * back) / f >= 18) break;
-      back *= 1.08; height *= 1.04;
-    }
-    hor = nearY * h - (f * height) / back;
-    Object.assign(this, { w, h, f, hor, height, back, yPos: H + back, minY: STAND_Y });
-    const half = (w / 2) * back / f;
-    let lo = half - 4, hi = W + 4 - half;
+  constructor() { this.x = CX; this.y = CY; this.ready = false; }
+  // w, h: canvas pixels. (tx, ty): where the action is. The camera looks down at about 40 degrees
+  // from the near side and follows the action both along the court and across it.
+  update(w, h, tx, ty, dt, snap) {
+    const ppm = Math.min(w / 25, h / 12);       // zoom at the action (about like the top view)
+    const back = 22, height = back * Math.tan((40 * Math.PI) / 180);
+    const f = ppm * back, anchor = 0.56 * h;    // the action sits a bit below the middle of the screen
+    // keep the camera over the court: near sideline never above the bottom, stands not too far up
+    const halfX = w / 2 / ppm;
+    const lo = halfX - 3.5, hi = W + 3.5 - halfX;
     tx = lo > hi ? CX : Math.min(Math.max(tx, lo), hi);
-    const k = snap || !this.ready ? 1 : 1 - Math.exp(-dt * 4.5);
+    // across the court: far sideline no lower than 30% of the screen, near sideline no higher than 94%
+    const A = ppm * height;
+    const tyLo = back / Math.max(0.05, 1 - (anchor - 0.3 * h) / A) - back;
+    const tyHi = back / (1 + (0.94 * h - anchor) / A) - back + H + 0.6;
+    ty = tyLo > tyHi ? (tyLo + tyHi) / 2 : Math.min(Math.max(ty, tyLo), tyHi);
+    const k = snap || !this.ready ? 1 : 1 - Math.exp(-dt * 4);
     this.x += (tx - this.x) * k;
+    this.y += (ty - this.y) * k;
+    const yPos = this.y + back, hor = anchor - f * height / back;
+    Object.assign(this, { w, h, f, hor, height, back, yPos, minY: STAND_Y });
     this.ready = true;
   }
   depth(y) { return this.yPos - y; }
@@ -99,13 +102,13 @@ const FANS = ['#ffd23f', '#e8453c', '#ffffff', '#3f8ee6', '#ffd23f', '#ff9f1c', 
 const SKINS = ['#f2c6a4', '#e0ac85', '#a36a45', '#7a4b2f', '#f1c7a5'].map((h) => C(h));
 const WALL = [C('#05070f'), C('#0d1430'), C('#151e44')], TIER = [C('#222c58'), C('#27336a')];
 const GLOW = [C('#fffbe6', 0.1), C('#fffbe6', 0.25), C('#fffbe6', 0.95)];
-const NIGHT = C('#04061a', 0.6), BEAM = C('#fffbe6', 0.05);
 const hash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
 
 function quad(R, a, b, c, d, col) { R.tri(a[0], a[1], b[0], b[1], c[0], c[1], col); R.tri(a[0], a[1], c[0], c[1], d[0], d[1], col); }
 
 function drawStands(R, cam, t, excite) {
   const w = cam.w, top = cam.P(0, STAND_Y)[1];
+  if (top <= 0) return;
   R.rect(w / 2, top / 2, w / 2 + 2, top / 2 + 2, WALL[1]);
   R.rect(w / 2, top * 0.12, w / 2 + 2, top * 0.12 + 2, WALL[0]);
   const k = cam.h / 390;
@@ -125,7 +128,8 @@ function drawStands(R, cam, t, excite) {
       const h1 = hash(i, r);
       if (h1 < 0.08) continue;
       const bob = excite > 0 ? Math.abs(Math.sin(t * 9 + h1 * 30)) * 0.25 * excite : (Math.sin(t * 1.6 + h1 * 30) * 0.5 + 0.5) * 0.04;
-      const [px, py0] = cam.P(i * step + (r % 2) * 0.3, y, z + bob), py = py0;
+      const [px, py] = cam.P(i * step + (r % 2) * 0.3, y, z + bob);
+      if (py < -s) continue;
       R.ellipse(px, py - 0.18 * s, 0.25 * s, 0.24 * s, FANS[(i * 7 + r * 3) & 7]);
       R.ellipse(px, py - 0.55 * s, 0.17 * s, 0.17 * s, SKINS[((h1 * 50) | 0) % 5]);
       if (h1 > 0.86 || (excite > 0.3 && h1 > 0.5)) R.line(px - 0.2 * s, py - 0.4 * s, px - 0.32 * s, py - 0.95 * s, 0.05 * s, FANS[(r + i) & 7]);
@@ -176,20 +180,14 @@ function drawGoal(R, cam, gx, part) {
 
 // ------------------------------------------------------------------ the frame
 const ents = [];
-// o: { game, now, excite, night, trail, mode, hint, soft, ruleDots(R, p) }
+// o: { game, now, excite, trail, mode, hint, soft, aimY, ruleDots(R, p) }
 export function renderTV(R, cam, o) {
   const g = o.game, b = g.ball, w = cam.w, h = cam.h;
   R.begin(w / 2, h / 2, 1, T.TP.clear);
-  const c = g.controlled, focus = c && c.active ? c : b.owner || b;
-  R.floor({ x: cam.x, height: cam.height, yPos: cam.yPos, f: cam.f, hor: cam.hor, minY: cam.minY, spot: o.night ? [focus.x, focus.y, 5, 0.6] : null });
+  const c = g.controlled;
+  R.floor({ x: cam.x, height: cam.height, yPos: cam.yPos, f: cam.f, hor: cam.hor, minY: cam.minY });
   drawStands(R, cam, o.now, o.excite);
   drawBoards(R, cam);
-  if (o.night) {
-    const top = cam.P(0, STAND_Y)[1];
-    R.rect(w / 2, top / 2, w / 2 + 2, top / 2 + 1, NIGHT);
-    const [lx, ly] = cam.P(focus.x, focus.y), r = cam.scale(focus.y) * 2.5;
-    for (const bx of [0.2, 0.8]) R.tri(w * bx - 10, -5, w * bx + 10, -5, lx + (bx - 0.5) * r, ly, BEAM);
-  }
 
   const menu = o.mode === 'menu' || o.mode === 'pick';
   if (c && c.active && !menu) T.drawMarker(PX.at(R, cam, c.x, c.y), c, o.now, o.hint);

@@ -103,7 +103,6 @@ uniform vec4 u_cam;   // x, height, yPos (camera ground y), f (pixels)
 uniform float u_hor;
 uniform vec4 u_box;   // texture covers world x0, y0 .. x1, y1
 uniform float u_minY; // nothing is drawn beyond this far line (the stands start there)
-uniform vec4 u_spot;  // night: spotlight x, y, radius, darkness (0 = day)
 uniform vec4 u_bg;
 out vec4 o;
 void main() {
@@ -122,12 +121,7 @@ void main() {
     vec2 q = (vec2(wx, wy) - vec2(-4.0 + float(i) * 8.0, 7.0)) / vec2(2.2, 6.0);
     g += exp(-dot(q, q));
   }
-  c += g * 0.07 * (1.0 - u_spot.w);
-  if (u_spot.w > 0.0) {
-    vec2 q = (vec2(wx, wy) - u_spot.xy) / u_spot.z;
-    float l = exp(-dot(q, q) * 1.6);
-    c = c * mix(1.0 - u_spot.w, 1.15, l) + vec3(0.10, 0.09, 0.06) * l;
-  }
+  c += g * 0.07;
   o = vec4(c, 1.0);
 }`;
 
@@ -198,7 +192,7 @@ class GLRenderer extends Base {
     gl.linkProgram(fp);
     this.fprog = fp;
     this.fu = {};
-    for (const u of ['u_tex', 'u_res', 'u_cam', 'u_hor', 'u_box', 'u_minY', 'u_spot', 'u_bg']) this.fu[u] = gl.getUniformLocation(fp, u);
+    for (const u of ['u_tex', 'u_res', 'u_cam', 'u_hor', 'u_box', 'u_minY', 'u_bg']) this.fu[u] = gl.getUniformLocation(fp, u);
     this.fvao = gl.createVertexArray();
     this.tex = null;
     if (this.floorSrc) this.setFloor(this.floorSrc.canvas, this.floorSrc.box);
@@ -220,7 +214,7 @@ class GLRenderer extends Base {
     const an = gl.getExtension('EXT_texture_filter_anisotropic');
     if (an) gl.texParameterf(gl.TEXTURE_2D, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
   }
-  // Draw the perspective floor this frame (under every shape). cam: { x, height, yPos, f, hor, minY, spot }
+  // Draw the perspective floor this frame (under every shape). cam: { x, height, yPos, f, hor, minY }
   floor(cam) { this.floorCam = cam; }
   begin(cx, cy, ppm, clear) {
     this.setView(cx, cy, ppm);
@@ -270,7 +264,7 @@ class GLRenderer extends Base {
     gl.clear(gl.COLOR_BUFFER_BIT);
     const fc = this.floorCam;
     if (fc && this.tex) {
-      const b = this.floorSrc.box, u = this.fu, sp = fc.spot || [0, 0, 1, 0];
+      const b = this.floorSrc.box, u = this.fu;
       gl.disable(gl.BLEND);
       gl.useProgram(this.fprog);
       gl.activeTexture(gl.TEXTURE0);
@@ -281,7 +275,6 @@ class GLRenderer extends Base {
       gl.uniform1f(u.u_hor, fc.hor);
       gl.uniform4f(u.u_box, b[0], b[1], b[2], b[3]);
       gl.uniform1f(u.u_minY, fc.minY);
-      gl.uniform4f(u.u_spot, sp[0], sp[1], sp[2], sp[3]);
       gl.uniform4f(u.u_bg, c[0], c[1], c[2], 1);
       gl.bindVertexArray(this.fvao);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -399,8 +392,6 @@ class CanvasRenderer extends Base {
       const sx = (xL - x0) * kx, sw = (xR - xL) * kx;
       g.drawImage(cv, sx, Math.max(0, Math.min(cv.height - 1, (wy - y0) * ky)), sw, 1, 0, sy, w, 2);
     }
-    const sp = cam.spot;
-    if (sp && sp[3] > 0) { g.fillStyle = `rgba(4,6,24,${sp[3] * 0.8})`; g.fillRect(0, Math.max(0, cam.hor), w, h); }
     g.restore();
   }
   end() {}

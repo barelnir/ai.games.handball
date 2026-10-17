@@ -315,39 +315,41 @@ await run('menus', async () => {
 });
 
 // ---------------------------------------------------------------- 7. a whole match, fast-forwarded
-// ---------------------------------------------------------------- views: top / TV camera / night
+// ---------------------------------------------------------------- views: top / TV camera
 await run('view', async () => {
   const P = await phone();
   const { page, t, errors } = P;
   await startMatch(P);
   const view = () => G(page, () => document.querySelector('#btnView').dataset.view);
   check(await view() === 'top', 'starts in the top view');
-  const shots = {};
-  shots.top = await page.screenshot({ path: `${out}/40-view-top.png` });
-  for (const v of ['tv', 'night']) {
-    await t.tapEl('#btnView');
-    await waitGame(page, 0.6);
-    check(await view() === v, `the view button switches to ${v}`);
-    shots[v] = await page.screenshot({ path: `${out}/41-view-${v}.png` });
-  }
-  check(!shots.top.equals(shots.tv) && !shots.tv.equals(shots.night), 'each view draws a different picture');
-  // the game keeps running and the joystick still steers in the TV view
+  const top = await page.screenshot({ path: `${out}/40-view-top.png` });
+  await t.tapEl('#btnView');
+  await waitGame(page, 0.6);
+  check(await view() === 'tv', 'the view button switches to the TV camera');
+  const tv = await page.screenshot({ path: `${out}/41-view-tv.png` });
+  check(!top.equals(tv), 'the TV camera draws a different picture');
+  await t.tapEl('#btnView'); await t.tapEl('#btnView'); // quick taps: tv -> top -> tv
+  check(await view() === 'tv', 'quick taps on the button all count');
+  // the joystick still steers in the TV view, and the camera follows across the court
   const c = await t.center('#stick');
-  await t.tapEl('#btnView'); await t.tapEl('#btnView'); // top -> tv
-  check(await view() === 'tv', 'the button cycles back round');
   const m0 = await me(page);
   await t.down(1, c.x, c.y); await t.move(1, c.x + 25, c.y); await t.move(1, c.x + 50, c.y);
   await waitGame(page, 0.8);
   const m1 = await me(page);
   await t.up(1);
   check(m1 && m0 && m1.id === m0.id ? m1.x > m0.x + 0.5 : m1 && m1.sp > 1.5, 'the joystick steers in the TV view', m0 && m1 ? `${m0.x.toFixed(1)} -> ${m1.x.toFixed(1)}` : '');
-  // the choice is remembered
+  const cam = await G(page, () => { const g = handball.game, b = g.ball, r = b.owner || b; return { ball: r.y }; });
+  check(Number.isFinite(cam.ball), 'the TV camera keeps running');
+  // the choice is remembered; an old "night" choice becomes the TV camera
   await page.reload(); await wait(page, 1200);
   check(await view() === 'tv', 'the view is remembered after a reload');
   check(await page.isVisible('.seg[data-key="view"] button.on[data-v="tv"]'), 'the menu shows the chosen view');
-  await t.tapEl('.seg[data-key="view"] button[data-v="night"]');
-  check(await view() === 'night', 'the view can also be picked in the menu');
+  check(await page.locator('.seg[data-key="view"] button').count() === 2, 'the menu offers two views');
   await t.tapEl('.seg[data-key="view"] button[data-v="top"]');
+  check(await view() === 'top', 'the view can also be picked in the menu');
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('handball7') || '{}'); s.view = 'night'; localStorage.setItem('handball7', JSON.stringify(s)); });
+  await page.reload(); await wait(page, 1200);
+  check(await view() === 'tv', 'an old night setting opens the TV camera');
   check(errors.length === 0, 'no errors while switching views', errors.join(' | '));
   await page.close();
 });
