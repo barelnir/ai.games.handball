@@ -18,7 +18,7 @@ const STEP = 1 / 60;
 // Saved choices (key handball8; older handball7 data is carried over once).
 const settings = {
   difficulty: 'normal', half: '300', rules: 'arcade', sound: true, music: true, view: 'top',
-  team: 'hornets', players: ['eitan', 'emma', 'eyal', 'rafael'], opponent: null, oppKid: null, played: false,
+  team: 'hornets', players: ['eitan', 'emma', 'eyal', 'rafael', 'roy'], opponent: null, oppKid: null, played: false,
 };
 try {
   const saved = localStorage.getItem('handball8');

@@ -11,7 +11,7 @@ A cartoon handball game in plain HTML and JavaScript, drawn with **WebGL**, in H
 > - [`docs/ROADMAP.md`](docs/ROADMAP.md): open tasks.
 
 The game is 7 v 7 on a 40 × 20 m court with real IHF markings, two referees, a crowd and background music.
-- **Players:** every player is a big-headed cartoon hero. Four of them are the family's kids (איתן, אמה, אייל, רפל), drawn from their photos. The photos themselves are not stored anywhere.
+- **Players:** every player is a big-headed cartoon hero. Five of them are real kids (איתן, אמה, אייל, רפל, רוי), drawn from their photos. The photos themselves are not stored anywhere.
 - **Teams:** you play as הצרעות, a club from the league, or a national team.
 - **Powers:** one of your kids gets a special power each match.
 - **Two players:** two kids can play against each other, each on their own phone.
@@ -95,7 +95,7 @@ In the TV view the renderer draws the court as one texture in perspective (a ful
   - Clubs wear an emblem of our own: a shield in the club colours with its initials. It is not the official logo.
   - Tapping a team moves on.
 - **"מי משחק ב…?"**:
-  - **Which kids play:** the four kids from the photos (איתן, אמה, אייל, רפל). All four play at first. One tap takes a kid out or puts them back, and at least one kid always plays. The Hornets' cartoon heroes fill the other places.
+  - **Which kids play:** the five kids from the photos (איתן, אמה, אייל, רפל, רוי). All five play at first. One tap takes a kid out or puts them back, and at least one kid always plays. The Hornets' cartoon heroes fill the other places.
   - **Opponent:** the opponent chip shows who you play against. It comes from your group: club against club, nation against nation, and הצרעות always against הצפעונים. Tapping 🔀 draws another opponent. Sometimes a kid who isn't playing for you leads the opponent, and the chip says so.
   - **The power is drawn:** at kick-off one of your kids is drawn to carry the special power, the power itself is drawn too, and a message says who got what (for example "הכוח של אמה ❄ קרח").
 - **Match:** the corner buttons are the camera (top or TV) and pause. On phones, fullscreen turns on by itself.

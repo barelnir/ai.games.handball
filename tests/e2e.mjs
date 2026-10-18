@@ -138,8 +138,10 @@ await run('flow', async () => {
   await t.tapEl('#teamCards .lu-card:visible', 0); taps++;
   await wait(page, 400);
   const kids = await page.locator('.kid-card b').allTextContents();
-  check(kids.length === 4 && ['אייל', 'אמה', 'איתן', 'רפל'].every((n) => kids.includes(n)), 'four kids, רפל too', kids.join(' | '));
-  check(await page.locator('.kid-card.in').count() === 4, 'all four kids play at first');
+  check(kids.length === 5 && ['אייל', 'אמה', 'איתן', 'רפל', 'רוי'].every((n) => kids.includes(n)), 'five kids, רפל too', kids.join(' | '));
+  check(await page.locator('.kid-card.in').count() === 5, 'all five kids play at first');
+  const fit = await G(page, () => [...document.querySelectorAll('.kid-card')].every((e) => { const r = e.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }));
+  check(fit, 'all the kid cards fit on a phone held sideways');
   check(!(await page.isVisible('#powerChip')) && (await page.textContent('#kidHint')).includes('נגריל'), 'no power to pick: it is drawn at kick-off');
   check((await page.textContent('#oppChip')).includes('הצפעונים') && await page.isDisabled('#oppChip'), 'הצרעות always play הצפעונים (no shuffle)');
   const noOverflow = await G(page, () => [...document.querySelectorAll('#pick button')].filter((b) => b.offsetParent).every((b) => { const r = b.getBoundingClientRect(); return r.bottom <= innerHeight + 1 && r.left >= -1 && r.right <= innerWidth + 1; }));
@@ -354,8 +356,8 @@ await run('kids', async () => {
   await t.tapEl('#play'); await wait(page, 300);
   await t.tapEl('#teamCards .lu-card:has-text("א.כ. נס ציונה")'); await wait(page, 300);
   const on = () => page.locator('.kid-card.in b').allTextContents();
-  // take out איתן and רפל with one tap each
-  await t.tapEl('.kid-card:has-text("איתן")'); await t.tapEl('.kid-card:has-text("רפל")');
+  // take out איתן, רפל and רוי with one tap each
+  await t.tapEl('.kid-card:has-text("איתן")'); await t.tapEl('.kid-card:has-text("רפל")'); await t.tapEl('.kid-card:has-text("רוי")');
   check((await on()).sort().join() === ['אייל', 'אמה'].sort().join(), 'a tap takes a kid out', (await on()).join(','));
   // at least one kid always plays
   await t.tapEl('.kid-card:has-text("אמה")'); await t.tapEl('.kid-card:has-text("אייל")');
@@ -378,7 +380,7 @@ await run('kids', async () => {
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
   const g = await G(page, () => { const g = handball.game; return { mine: g.teams[0].players.map((p) => p.hero.nameHe), cb: g.teams[0].players.find((p) => p.role === 'CB').hero.nameHe, teams: g.teams.map((x) => x.kit.he), rivalKid: g.rivalProfile ? g.rivalProfile.nameHe : null, crest: g.teams[0].kit.crest && g.teams[0].kit.crest.txt }; });
   check(['אייל', 'אמה'].includes(g.cb), 'one of our kids carries the power', g.cb);
-  check(g.mine.includes('אמה') && g.mine.includes('אייל') && !g.mine.includes('איתן') && !g.mine.includes('רפל') && new Set(g.mine).size === 7, 'our kids play, nobody twice', g.mine.join(','));
+  check(g.mine.includes('אמה') && g.mine.includes('אייל') && !g.mine.includes('איתן') && !g.mine.includes('רפל') && !g.mine.includes('רוי') && new Set(g.mine).size === 7, 'our kids play, nobody twice', g.mine.join(','));
   check(!g.mine.some((n) => ['סליל', 'היס', 'ניב', 'ארס', 'רעשן', 'זחל', 'פייתון'].includes(n)), 'no Vipers on our team', g.mine.join(','));
   check(g.teams[0] === 'א.כ. נס ציונה' && chip.includes(g.teams[1]) && (!g.rivalKid || chip.includes(g.rivalKid)), 'the match is exactly what the chip said', `${chip} -> ${g.teams.join(' - ')} ${g.rivalKid || ''}`);
   check(g.crest === 'נ״צ', 'נס ציונה wear their emblem', g.crest);
@@ -533,7 +535,7 @@ await run('two', async () => {
   await A.t.tapEl('#two'); await wait(A.page, 300);
   check(await A.page.isVisible('#stepTeam'), 'two players: first pick your team');
   await A.t.tapEl('#teamCards .lu-card:visible', 0); await wait(A.page, 300);
-  for (const i of [1, 2, 3]) await A.t.tapEl('.kid-card', i);
+  for (const i of [1, 2, 3, 4]) await A.t.tapEl('.kid-card', i);
   check(!(await A.page.isVisible('#oppChip')) && (await A.page.textContent('#go')) === 'ממשיכים', 'two players: no opponent to pick, "ממשיכים"');
   await A.t.tapEl('#go'); await wait(A.page, 300);
   check(await A.page.isVisible('#netChoose'), 'then: open a game or join one');

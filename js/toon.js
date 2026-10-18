@@ -345,6 +345,19 @@ function drawHairFront(R, h, X, headY, HR, hair, skin, dirX, side, t, kit) {
       R.line(X - 0.1, top + 0.04, X + 0.05 * d, top - 0.03, 0.012, col('#a07a50'));
       break;
     }
+    case 'curly': {
+      // a mop of curls: bumps around the top and a few over the forehead
+      const o = side ? dirX * 0.03 : 0;
+      for (let i = -3; i <= 3; i++) {
+        const a = -Math.PI / 2 + i * 0.36;
+        E(R, X - o + Math.cos(a) * HR * 0.86, headY - 0.03 + Math.sin(a) * HR * 0.9, 0.075, 0.07, hair);
+      }
+      cap(0);
+      R.ellipse(X - o, headY - HR * 0.62, HR * 0.92, HR * 0.5, hair);
+      for (const k of [-1, 0, 1]) E(R, X - o + k * 0.1 + (side ? dirX * 0.05 : 0), top + 0.12, 0.05, 0.045, hair);
+      R.ellipse(X - o - 0.06, top + 0.03, 0.04, 0.025, col('#ffffff', 0.2));
+      break;
+    }
     case 'bald':
       R.ellipse(X - 0.08, top + 0.08, 0.06, 0.035, col('#ffffff', 0.35));
       break;
@@ -378,6 +391,10 @@ function drawHairBack(R, h, X, headY, HR, hair, skin, t) {
     }
   }
   if (s === 'bun') E(R, X, headY - HR - 0.04, 0.1, 0.09, hair);
+  if (s === 'curly') for (let i = -3; i <= 3; i++) {
+    const a = -Math.PI / 2 + i * 0.36;
+    E(R, X + Math.cos(a) * HR * 0.9, headY + Math.sin(a) * HR * 0.92, 0.075, 0.07, hair);
+  }
   if (s === 'pony') L(R, X, headY, X + Math.sin(t * 6) * 0.03, headY + HR + 0.12, 0.05, hair);
   if (s === 'long') E(R, X, headY + 0.14, HR + 0.03, HR * 0.95, hair);
   if (s === 'pigtails') { E(R, X - HR - 0.04, headY + 0.04, 0.08, 0.09, hair); E(R, X + HR + 0.04, headY + 0.04, 0.08, 0.09, hair); }
