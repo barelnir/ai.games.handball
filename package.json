@@ -2,7 +2,7 @@
   "name": "handball-seven",
   "private": true,
   "type": "module",
-  "description": "A 2D handball game in plain HTML + WebGPU. No build step.",
+  "description": "כדוריד הגיבורים: a cartoon handball game in plain HTML + WebGL, in Hebrew. No build step.",
   "scripts": {
     "start": "python3 -m http.server 8080",
     "test": "node tests/sim.mjs && node tests/power.mjs && node tests/pass.mjs && node tests/lineup.mjs",

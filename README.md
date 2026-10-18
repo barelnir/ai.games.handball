@@ -1,12 +1,23 @@
-# Handball Seven
+# כדוריד הגיבורים · Handball Seven
 
-A 2D handball game in plain HTML and JavaScript, drawn with **WebGL** and playable on a phone or a desktop browser. No build step and no libraries.
+A cartoon handball game in plain HTML and JavaScript, drawn with **WebGL**, in Hebrew, and playable on a phone or a desktop browser. There is no build step and there are no libraries.
 
-You play the **Hornets** (yellow) against the **Vipers** (red), 7 v 7 on a 40 × 20 m court with real IHF markings, two referees, a crowd and background music. Every player is a big-headed cartoon hero with their own look (see `mock/` for the character sheet).
+**Play:** https://barelnir.github.io/ai.games.handball/
+
+> **New here? Start with [`HANDOVER.md`](HANDOVER.md)** (Hebrew).
+> - [`CLAUDE.md`](CLAUDE.md): rules and commands for AI-assisted work.
+> - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the code fits together.
+> - [`docs/HISTORY.md`](docs/HISTORY.md): what was asked for, and why things are the way they are.
+> - [`docs/ROADMAP.md`](docs/ROADMAP.md): open tasks.
+
+The game is 7 v 7 on a 40 × 20 m court with real IHF markings, two referees, a crowd and background music.
+- **Players:** every player is a big-headed cartoon hero. Four of them are the family's kids (איתן, אמה, אייל, רפל), drawn from their photos. The photos themselves are not stored anywhere.
+- **Teams:** you play as הצרעות, a club from the league, or a national team.
+- **Powers:** one of your kids gets a special power each match.
 
 ## Play
 
-- **On your phone:** open the GitHub Pages URL (see *Deploy*), turn the phone sideways, and tap **Throw-off**. Use *Add to Home Screen* to install it full-screen. It also works offline.
+- **On your phone:** open the GitHub Pages URL, turn the phone sideways, and tap **יאללה, משחקים!**. Use *Add to Home Screen* to install it full-screen. It also works offline.
 - **Locally:** `npm start` (or `python3 -m http.server 8080`), then open <http://localhost:8080>. ES modules need a web server, so opening `index.html` from disk won't work.
 
 | Action | Phone | Keyboard |
@@ -15,9 +26,9 @@ You play the **Hornets** (yellow) against the **Vipers** (red), 7 v 7 on a 40 ×
 | Pass · switch player | PASS / SWITCH | J or Z |
 | Jump shot · steal / block | Hold SHOOT and release · tap STEAL | Hold K or X · tap |
 | Aim a shot | Push the stick up or down while winding up | W / S |
-| Special power | POWER (slot reserved) | L |
+| Special power | כוח (when ready) | L |
 | Pause | ❚❚ | P / Esc |
-| View: top / TV camera | 🎥 (top corner) | menu |
+| Camera: top / TV | 🎥 (top corner) | |
 
 ## Rules that are simulated
 
@@ -41,19 +52,22 @@ js/game.js          The match: players, ball physics, rules, referees, AI (no DO
 js/court.js         Court geometry in metres (goal area "D", 9 m line, 7 m mark…)
 js/render.js        Renderer: WebGL 2 (instanced SDF shapes, one draw call) with a Canvas 2D fallback
 js/toon.js          Cartoon art: hero squads, court, goals, referees, ball (built from 5 primitives)
-js/clubs.js          Kids' league clubs and national teams: names, shirt colours, away kits
+js/clubs.js         League clubs and national teams: names, shirt colours, flags/emblems, away kits
 js/tv.js            TV camera view (like FIFA): perspective court, stands, LED boards, 3D goals
 js/input.js         Keyboard + multi-touch joystick and buttons
 js/audio.js         Synthesised music loop, whistle, ball and crowd sounds (WebAudio, no audio files)
-mock/index.html     Character sheet / look-and-feel mock
 js/powers.js        Special power logic (driven by the chosen template)
 js/heroes.js        Hero profiles (from photos), power templates, full-screen POWER portrait
 sw.js, manifest     PWA: install to the home screen, works offline
 tests/sim.mjs       Headless AI-vs-AI matches (`npm test`)
-tests/power.mjs     Eitan's power, end to end (`npm test`)
+tests/power.mjs     Every power, end to end (`npm test`)
 tests/pass.mjs      The pass magnet (`npm test`)
 tests/lineup.mjs    Picking the players (`npm test`)
-tests/e2e.mjs       Playwright phone test of the real game (`npm run e2e`)
+tests/e2e.mjs       Playwright phone test of the real game, in sections
+tests/run-e2e.mjs   Runs the e2e sections in parallel (`npm run e2e`)
+tools/stamp.mjs     Deploy-time versioning of every file URL
+mock/               Design sketches (character sheet, powers, camera styles)
+docs/               Architecture, history, roadmap
 ```
 
 **Graphics:** every shape (ellipse, rounded rectangle, ring, capsule line, rounded triangle) is one instance of a quad. A GLSL fragment shader shades it with an anti-aliased signed-distance function, so the whole frame is a single `drawArraysInstanced(…, 6, n)` call. Browsers without WebGL 2 automatically use the Canvas 2D renderer, which has the same API. The renderer in use is shown on the menu screen.
@@ -62,7 +76,7 @@ tests/e2e.mjs       Playwright phone test of the real game (`npm run e2e`)
 
 ## Views
 
-The 🎥 button (top corner, next to the music button) switches the view during a match. The choice is remembered and is also in the menu:
+The 🎥 button (top corner, next to pause) switches the view during a match. The choice is remembered:
 - **Top (מלמעלה):** the camera looks down on the court.
 - **TV (טלוויזיה):** a camera on the near side looks down at about 40°, zoomed in like the top view, and follows the ball along and across the court. The court has depth, and there are stands full of fans, LED boards and 3D goals. The heroes are drawn 30% bigger than life, so they stay easy to see.
 
@@ -101,13 +115,14 @@ Choices are saved under `handball8`. Older `handball7` data carries over once.
 - `js/powers.js` runs the powers.
 - `js/toon.js` draws everything cartoon.
 - `mock/eitan.html` shows every power for a kid side by side.
+- `js/clubs.js` has the teams. Each club has an emblem of our own; each nation has its flag.
 
 ## Tests
 
 - `npm test`: headless matches (`tests/sim.mjs`), every power end to end (`tests/power.mjs`), the pass magnet (`tests/pass.mjs`) and the line-up (`tests/lineup.mjs`).
 - `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. The sections run in parallel, each in its own browser (`tests/run-e2e.mjs`, about 2 minutes; `npm run e2e:serial` runs them one by one). It covers:
-  - the flow (4 taps from opening to the match), Hebrew labels and fonts, and the music level;
-  - the kids screen: captain, friends, each kid's own power, the opponent chip, and the match matching the chip;
+  - the flow (3 taps from opening to the match), Hebrew labels and fonts, the drawn power, and the music level;
+  - the kids screen: taking kids out and back in (at least one), the opponent chip, and the match matching the chip;
   - teams: national teams, flags, different shirts, "שחקו שוב" in one tap, restart keeps the match, back button, settings, old saved data;
   - the joystick: never moves by itself, always stops on release, two thumbs, cancelled touches, a stale touch replaced by a new one;
   - double-tap zoom;
