@@ -32,6 +32,15 @@ try {
   }
 } catch {}
 const save = () => { try { localStorage.setItem('handball8', JSON.stringify(settings)); } catch {} };
+// A kid who is new to the game (like רוי) joins the team once, so "שחקו שוב" brings them in too.
+// `known` remembers which kids this phone has seen; older saves knew the first four.
+{
+  const known = Array.isArray(settings.known) ? settings.known : ['eitan', 'emma', 'eyal', 'rafael'];
+  const fresh = PROFILES.map((p) => p.id).filter((k) => !known.includes(k));
+  if (Array.isArray(settings.players)) for (const k of fresh) if (!settings.players.includes(k)) settings.players.push(k);
+  settings.known = PROFILES.map((p) => p.id);
+  if (fresh.length) save();
+}
 
 let R = null;
 let game = null;

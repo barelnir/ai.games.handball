@@ -400,7 +400,7 @@ await run('teams', async () => {
   await page.screenshot({ path: `${out}/39-nations.png` });
   await t.tapEl('#teamCards .lu-card:visible:has-text("ישראל")'); await wait(page, 300);
   check((await page.textContent('#pickTitle')).includes('ישראל'), 'the kids screen names the team', await page.textContent('#pickTitle'));
-  for (const n of ['איתן', 'אמה', 'אייל']) await t.tapEl(`.kid-card:has-text("${n}")`); // only רפל plays
+  for (const n of ['איתן', 'אמה', 'אייל', 'רוי']) await t.tapEl(`.kid-card:has-text("${n}")`); // only רפל plays
   const chip = await page.textContent('#oppChip');
   await t.tapEl('#go');
   await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 8000 });
@@ -445,7 +445,15 @@ await run('teams', async () => {
   await t.tapEl('#play'); await wait(page, 300);
   check(await G(page, () => document.querySelector('#teamCards .lu-card.sel b').textContent) === 'מכבי חולון', 'old saved team carries over');
   await t.tapEl('#teamCards .lu-card.sel'); await wait(page, 300);
-  check((await page.locator('.kid-card.in b').allTextContents()).join() === 'אמה', 'old saved hero becomes the team\'s kid');
+  check((await page.locator('.kid-card.in b').allTextContents()).sort().join() === ['אמה', 'רוי'].sort().join(), 'old saved hero becomes the team\'s kid (and the new kid joins)', (await page.locator('.kid-card.in b').allTextContents()).join());
+  // a kid new to the game (רוי) joins a saved team once; after that, taking him out sticks
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('handball8', JSON.stringify({ team: 'hornets', players: ['eitan', 'emma'], played: true })); });
+  await page.reload(); await ready(page);
+  check((await page.textContent('#againSub')).includes('רוי'), 'a new kid joins "שחקו שוב" once', await page.textContent('#againSub'));
+  await t.tapEl('#play'); await wait(page, 300); await t.tapEl('#teamCards .lu-card:visible', 0); await wait(page, 300);
+  await t.tapEl('.kid-card:has-text("רוי")'); await wait(page, 100);
+  await page.reload(); await ready(page);
+  check(!(await page.textContent('#againSub')).includes('רוי'), 'taking the new kid out is remembered', await page.textContent('#againSub'));
   check(errors.length === 0, 'no errors with teams', errors.join(' | '));
   await page.close();
 });
