@@ -11,6 +11,7 @@ index.html ── js/main.js ─┬─ js/game.js ──┬─ js/court.js     c
                           ├─ js/toon.js     cartoon drawing (heroes, court, ball, flags, crests)
                           ├─ js/tv.js       TV camera view
                           ├─ js/clubs.js    teams, kits, opponents
+                          ├─ js/net.js      two phones: WebRTC link, 4-digit code
                           ├─ js/input.js    joystick, buttons, keyboard
                           └─ js/audio.js    synthesised music and sounds
 ```
@@ -113,6 +114,22 @@ index.html ── js/main.js ─┬─ js/game.js ──┬─ js/court.js     c
 
 **Test hook:** `window.handball` exposes `game`, `mode`, `setup`, `input` and `replayWith(o)`.
 
+## Two players: `js/net.js` and "two players, two phones" in `js/main.js`
+**The link (`net.js`):**
+- The phones talk directly over a WebRTC data channel (reliable, ordered, JSON messages).
+- **Finding each other:** both connect for a few seconds to the free public PeerJS server (`wss://0.peerjs.com/peerjs`), which only relays the WebRTC offer, answer and ICE candidates. We use the server's protocol (`OPEN`, `OFFER`, `ANSWER`, `CANDIDATE`, `EXPIRE`, `HEARTBEAT`) with our own small client, not the PeerJS library.
+- **The code:** the host registers the id `kadurid-hagiborim-<code>` with a random 4-digit code (another code if it is taken). The friend sends its offer to that id. A wrong code comes back as `EXPIRE`: "לא מצאנו משחק עם הקוד הזה".
+- **STUN only** (Google's public STUN servers), no TURN: same Wi-Fi always works; some mobile networks may not connect.
+- `?signal=bc` meets over a `BroadcastChannel` instead (tests); `?peer=host:port` uses a PeerJS server of your own.
+
+**The match:**
+- **Host (team 0):** runs `new Game({ human: 0, human2: 1, ... })`. `game.inputs[1]` is the friend's input, filled from `in` messages. Button presses arrive as counters, so none is lost or doubled. About 30 times a second it sends `{ t: 's', s: game.snapshot(), ev }` (the events are for the friend's sounds).
+- **Friend (team 1):** builds the same `Game` from the same `setup`, sets `opts.human = 1` (so `controlled`, the HUD and the buttons are team 1's) and never steps it. `applySnapshot()` copies the state in; `coast()` moves things along at their speed between snapshots.
+- **Setup:** after connecting, the friend sends `hello` (their team and kids). The host builds `setup` with `twoSetup()` (no kid on both teams, both powers drawn, the host's half length and rules) and sends `start`. Both call `startMatch()`.
+- **Modes:** the host decides `play`, `paused` and `break`, and sends `mode`. On the friend's phone pause, resume, "למחצית השנייה" and "עוד משחק!" send `ask` to the host (`act()`). `bye` (from "לתפריט") or a closed link shows "the friend left" on the other phone.
+- **Quiet friend:** if no message came for 1.5 s, the host holds the match, and both show "מחכים לחבר…".
+- **Messages for one player:** `game.say(..., only)` shows a message only on that player's phone (for example "הכוח נטען").
+
 ## Input: `js/input.js`
 Pointer Events with capture on the arrow pad (`#stick`) and the buttons (`#btnA` pass/switch, `#btnB` shoot/steal, `#btnP` power), plus the keyboard (WASD/arrows, J/K/L, P/Esc).
 
@@ -135,6 +152,7 @@ Robust release handling covers window-level `pointerup`/`pointercancel`, `lostpo
 - `tests/power.mjs`: every power fires, freezes, empties and refills the meter, arms, and scores.
 - `tests/pass.mjs`: a "kid" wiggling the stick still lands ≥75% of passes.
 - `tests/lineup.mjs`: line-ups apply, and no hero plays on both teams.
+- `tests/twoplayer.mjs`: both teams steered by players, a full two-player match, the friend's copy matching the host's from snapshots, equal power meters.
 
 **`npm run e2e`** (Playwright, real touch through CDP) has these sections:
 - `flow`: home → match in 3 taps, Hebrew text, fonts, music.
@@ -147,6 +165,7 @@ Robust release handling covers window-level `pointerup`/`pointercancel`, `lostpo
 - `teams`: nations, flags, shirts, "שחקו שוב", restart, the back button, settings, migration, wording.
 - `view`: the camera button.
 - `match`: a full match, half-time and full-time.
+- `two`: two phones in one browser: the code, a wrong code, the real WebRTC link, the friend's stick and buttons, pause from either phone, half-time, full time from each side, leaving.
 
 `tests/run-e2e.mjs` runs the sections in parallel.
 

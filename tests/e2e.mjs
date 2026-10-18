@@ -29,7 +29,8 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(0, r));
 const url = `http://localhost:${server.address().port}/index.html`;
 const exe = process.env.CHROMIUM || (fs.existsSync('/opt/pw-browsers/chromium-1194/chrome-linux/chrome') ? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' : undefined);
-const browser = await pw.chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+// (WebRTC between two tabs: plain local addresses instead of mDNS names, which a container can't resolve)
+const browser = await pw.chromium.launch({ executablePath: exe, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-features=WebRtcHideLocalIpsWithMdns'] });
 
 let failed = 0, passed = 0;
 const check = (ok, name, info = '') => {
@@ -43,8 +44,10 @@ const DPR = Number(process.env.E2E_DPR) || 1;
 const ready = (page) => page.waitForFunction(() => window.handball && handball.game && document.querySelector('#gfx').textContent !== '…', null, { timeout: 20000, polling: 50 });
 
 // ---------------------------------------------------------------- phone helpers (real touches)
+const PHONE = { viewport: { width: 844, height: 390 }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true };
 async function phone(opts = {}) {
-  const page = await browser.newPage({ viewport: { width: 844, height: 390 }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true, ...opts });
+  const { context, ...o } = opts; // two phones in one browser context can meet over a BroadcastChannel
+  const page = context ? await context.newPage() : await browser.newPage({ ...PHONE, ...o });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/favicon|404|fonts\.g/.test(m.text())) errors.push(m.text()); });
@@ -177,6 +180,8 @@ await run('control', async () => {
   const dirs = [[1, 0], [-1, 0], [0, -1], [0, 1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
   let stuck = 0, movedOk = 0;
   for (const [dx, dy] of dirs) {
+    // (not while the computer's ice holds your team, during a close-up, or at a set piece)
+    await page.waitForFunction(() => { const g = handball.game, p = g.controlled; return g.state === 'play' && !(g.splash > 0) && p && !(p.frozen > 0); }, null, { timeout: 15000, polling: 50 });
     await t.down(1, c.x, c.y);
     await t.move(1, c.x + dx * 25, c.y + dy * 25);
     await t.move(1, c.x + dx * 50, c.y + dy * 50);
@@ -230,9 +235,10 @@ await run('control', async () => {
   await t.up(1);
   await wait(page, 200);
   await t.tapEl('#resume');
-  await wait(page, 500);
+  await waitGame(page, 0.5); // game time: a slow machine draws few frames in half a second
   m = await me(page);
-  check(m.stick === null && m.sp < 0.8, 'after pause/resume nothing is held');
+  // (at a goal or a set piece your player walks to its place by itself: that is not a held stick)
+  check(m.stick === null && (m.sp < 0.8 || m.state !== 'play'), 'after pause/resume nothing is held', JSON.stringify(m));
   check(errors.length === 0, 'no page errors (control)', errors.slice(0, 2).join(' | '));
   await page.close();
 });
@@ -278,7 +284,8 @@ await run('power', async () => {
     await page.waitForFunction(() => !(handball.game.splash > 0), null, { timeout: 8000 });
     if (keys[i] === 'ice') check(await G(page, () => handball.game.teams[1].players.filter((p) => p.active && p.frozen > 0).length >= 6), 'ice: rivals are frozen');
     // move the carrier near goal and shoot with a real tap
-    await G(page, () => { const g = handball.game, c = g.ball.owner, ax = g.teams[0].defX === 0 ? 40 : 0; c.x = ax + (ax ? -9 : 9); c.y = 9.5; });
+    // (the rivals hold off a moment, so a foul on the moved carrier can't turn the shot into a 7 m throw)
+    await G(page, () => { const g = handball.game, c = g.ball.owner, ax = g.teams[0].defX === 0 ? 40 : 0; c.x = ax + (ax ? -9 : 9); c.y = 9.5; for (const p of g.teams[1].players) p.stealCd = 3; });
     await wait(page, 200);
     await page.screenshot({ path: `${out}/11-power-${keys[i]}-ball.png` });
     const pre = await G(page, () => { const g = handball.game; return { owner: g.ball.owner && g.ball.owner.id, ctrl: g.controlled && g.controlled.id, state: g.state, power: g.ball.power, splash: g.splash }; });
@@ -509,6 +516,121 @@ await run('match', async () => {
   check(await G(page, () => handball.game.teams.map((x) => x.kit.he).join()) === before, '"עוד משחק!" plays the same match again');
   check(errors.length === 0, 'no page errors (match)', errors.slice(0, 2).join(' | '));
   await page.close();
+});
+
+// ---------------------------------------------------------------- two players, two phones
+await run('two', async () => {
+  // Two phones in one browser: they meet over a BroadcastChannel (?signal=bc) instead of the public
+  // server, then play over a real WebRTC link.
+  const ctx = await browser.newContext(PHONE);
+  const A = await phone({ context: ctx }), B = await phone({ context: ctx });
+  // PEER=localhost:9000 meets on a PeerJS server of your own instead (npx peer --port 9000)
+  const u = url + (process.env.PEER ? `?peer=${process.env.PEER}` : '?signal=bc');
+  await A.page.goto(u); await B.page.goto(u);
+  await ready(A.page); await ready(B.page);
+  await A.page.screenshot({ path: `${out}/60-two-home.png` });
+  // A (host): הצרעות with איתן only
+  await A.t.tapEl('#two'); await wait(A.page, 300);
+  check(await A.page.isVisible('#stepTeam'), 'two players: first pick your team');
+  await A.t.tapEl('#teamCards .lu-card:visible', 0); await wait(A.page, 300);
+  for (const i of [1, 2, 3]) await A.t.tapEl('.kid-card', i);
+  check(!(await A.page.isVisible('#oppChip')) && (await A.page.textContent('#go')) === 'ממשיכים', 'two players: no opponent to pick, "ממשיכים"');
+  await A.t.tapEl('#go'); await wait(A.page, 300);
+  check(await A.page.isVisible('#netChoose'), 'then: open a game or join one');
+  await A.page.screenshot({ path: `${out}/61-two-choose.png` });
+  await A.t.tapEl('#netHost');
+  await A.page.waitForFunction(() => /^\d{4}$/.test(document.querySelector('#netCode').textContent), null, { timeout: 8000 });
+  const code = await A.page.textContent('#netCode');
+  check(true, 'the host gets a 4-digit code', code);
+  await A.page.screenshot({ path: `${out}/62-two-code.png` });
+  // B (friend): נס ציונה with אמה, אייל and רפל
+  await B.t.tapEl('#two'); await wait(B.page, 300);
+  await B.t.tapEl('#teamCards .lu-card:visible', 1); await wait(B.page, 300);
+  await B.t.tapEl('.kid-card', 0);
+  await B.t.tapEl('#go'); await wait(B.page, 300);
+  await B.t.tapEl('#netJoin'); await wait(B.page, 200);
+  const type = async (digits) => { for (const d of digits) await B.t.tapEl(`#keypad button[data-d="${d}"]`); };
+  await type('0000');
+  await B.page.waitForFunction(() => /לא מצאנו/.test(document.querySelector('#joinStatus').textContent), null, { timeout: 8000 });
+  check(true, 'a wrong code says so', await B.page.textContent('#joinStatus'));
+  await B.page.screenshot({ path: `${out}/63-two-keypad.png` });
+  await type(code);
+  await A.page.waitForFunction(() => handball.mode === 'play', null, { timeout: 20000 });
+  await B.page.waitForFunction(() => handball.mode === 'play', null, { timeout: 20000 });
+  const info = (P) => G(P.page, () => ({ net: handball.net, me: handball.game.opts.human, teams: handball.game.teams.map((t) => t.kit.he), heroes: handball.game.teams.map((t) => t.players.map((p) => p.hero.name)) }));
+  const a = await info(A), b = await info(B);
+  check(a.net && a.net.role === 'host' && b.net && b.net.role === 'guest' && b.me === 1, 'connected: host and friend', `${JSON.stringify(a.net)} ${JSON.stringify(b.net)}`);
+  check(a.teams.join() === 'הצרעות,א.כ. נס ציונה' && b.teams.join() === a.teams.join(), 'each player\'s team, the same on both phones', b.teams.join(' - '));
+  check(a.heroes[0].includes('Eitan') && ['Emma', 'Eyal', 'Rafael'].every((n) => a.heroes[1].includes(n)) && b.heroes.join() === a.heroes.join(), 'each player\'s kids', a.heroes.map((h) => h.join(',')).join(' | '));
+  const mine = (P) => G(P.page, () => [...document.querySelectorAll('.board .team.me .abbr')].map((e) => e.textContent).join());
+  const [ma, mb] = [await mine(A), await mine(B)];
+  check(ma === 'צרעות' && mb === 'נס ציונה', 'each phone marks its own team on the scoreboard', `${ma} / ${mb}`);
+  await waitGame(A.page, 1);
+  const [ta, tb] = await Promise.all([G(A.page, () => handball.game.time), G(B.page, () => handball.game.time)]);
+  check(Math.abs(ta - tb) < 0.5, 'the friend\'s phone follows the host\'s match', `${ta.toFixed(2)} / ${tb.toFixed(2)}`);
+  await A.page.screenshot({ path: `${out}/64-two-host.png` });
+  await B.page.screenshot({ path: `${out}/65-two-friend.png` });
+  // the friend's stick steers team 1's player on the host's phone, and lets go when the finger lifts
+  const free = () => A.page.waitForFunction(() => { const g = handball.game, p = g.ctrl[1]; return g.state === 'play' && !(g.splash > 0) && p && !(p.frozen > 0); }, null, { timeout: 15000, polling: 50 });
+  await free();
+  const c = await B.t.center('#stick');
+  await B.t.down(1, c.x, c.y); await B.t.move(1, c.x + 25, c.y); await B.t.move(1, c.x + 50, c.y);
+  await waitGame(A.page, 0.7);
+  const v1 = await G(A.page, () => { const p = handball.game.ctrl[1]; return p && p.vx; });
+  await B.t.up(1);
+  await waitGame(A.page, 0.7);
+  const v2 = await G(A.page, () => handball.game.input && handball.game.inputs[1].mx);
+  check(v1 > 1, 'the friend\'s stick moves their player', v1 && v1.toFixed(2));
+  check(v2 === 0, 'the friend\'s stick lets go when the finger lifts', v2);
+  // the friend's buttons reach the host: steal (while the friend's team doesn't have the ball), then POWER
+  // (with the easy rules a friend who doesn't touch the screen keeps the ball for ever: hand it over)
+  await G(A.page, () => { const g = handball.game, b = g.ball; if (b.owner && b.owner.team === 1) g.setOwner(g.teams[0].players.find((p) => p.role === 'LB')); });
+  await A.page.waitForFunction(() => { const g = handball.game, b = g.ball; return g.state === 'play' && !(b.owner && b.owner.team === 1) && g.ctrl[1] && !(g.ctrl[1].frozen > 0) && !(g.splash > 0); }, null, { timeout: 20000, polling: 20 });
+  await B.t.tapEl('#btnB');
+  await A.page.waitForFunction(() => handball.game.ctrl[1] && handball.game.ctrl[1].stealCd > 0, null, { timeout: 5000, polling: 20 }).then(() => check(true, 'the friend\'s steal button works'), () => check(false, 'the friend\'s steal button works'));
+  await B.t.tapEl('#btnP');
+  await A.page.waitForFunction(() => { const g = handball.game; return g.powers.teams[1].armed || (g.ball.power && g.ball.powerTeam === 1) || g.teams[1].energy < 50; }, null, { timeout: 5000, polling: 20 }).then(() => check(true, 'the friend\'s POWER button works'), () => check(false, 'the friend\'s POWER button works'));
+  // pause from either phone pauses both
+  await A.page.waitForFunction(() => !(handball.game.splash > 0), null, { timeout: 5000 });
+  await B.t.tapEl('#btnPause');
+  await A.page.waitForFunction(() => handball.mode === 'paused', null, { timeout: 5000 });
+  await B.page.waitForFunction(() => handball.mode === 'paused', null, { timeout: 5000 });
+  check(true, 'the friend pauses: both phones pause');
+  await A.t.tapEl('#resume');
+  await B.page.waitForFunction(() => handball.mode === 'play', null, { timeout: 5000 });
+  check(await G(A.page, () => handball.mode) === 'play', 'the host resumes: both phones play');
+  // half-time and full-time on both phones (the host's match is fast-forwarded)
+  const ff = (until) => G(A.page, (u) => { const g = handball.game; for (let i = 0; i < 60 * 700 && g.state !== u; i++) { g.step(1 / 60); g.events.length = 0; } return g.state; }, until);
+  await ff('halftime');
+  await B.page.waitForSelector('#break', { state: 'visible', timeout: 10000 });
+  check(/מחצית/.test(await B.page.textContent('#brEyebrow')), 'half-time on the friend\'s phone too');
+  await B.t.tapEl('#brNext');
+  await A.page.waitForFunction(() => handball.mode === 'play' && handball.game.half === 2, null, { timeout: 8000 });
+  await B.page.waitForFunction(() => handball.mode === 'play' && handball.game.half === 2, null, { timeout: 8000 });
+  check(true, 'the friend starts the second half for both');
+  await G(A.page, () => { handball.game.teams[0].score = 3; handball.game.teams[1].score = 1; });
+  await ff('fulltime');
+  await B.page.waitForSelector('#break', { state: 'visible', timeout: 10000 });
+  await A.page.waitForSelector('#break', { state: 'visible', timeout: 10000 });
+  const end = await Promise.all([A, B].map((P) => G(P.page, () => ({ say: document.querySelector('#brEyebrow').textContent, score: handball.game.teams.map((t) => t.score) }))));
+  const [s0, s1] = end[0].score;
+  const want = (mine, other) => (mine > other ? /ניצחתם/ : mine < other ? /ניצחו/ : /תיקו/);
+  check(end[1].score.join() === end[0].score.join() && want(s0, s1).test(end[0].say) && want(s1, s0).test(end[1].say), 'full time: the same score, each phone from its own side', `${s0}:${s1} · ${end[0].say} · ${end[1].say}`);
+  check(!(await B.page.isVisible('#brNewOpp')), 'no "יריב חדש" with two players');
+  const inView = await G(B.page, () => [...document.querySelectorAll('#break button:not([hidden])')].every((e) => { const r = e.getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; }));
+  check(inView, 'the end screen fits a phone held sideways (all buttons on screen)');
+  await B.page.screenshot({ path: `${out}/66-two-end.png` });
+  // the friend leaves: the host is told
+  await B.t.tapEl('#brMenu');
+  await A.page.waitForFunction(() => !document.querySelector('#netEndBox').hidden, null, { timeout: 8000 });
+  check(/יצא/.test(await A.page.textContent('#netEndSay')), 'the friend leaves: the host is told', await A.page.textContent('#netEndSay'));
+  await A.t.tapEl('#netBack');
+  check(await G(A.page, () => handball.mode) === 'menu' && await G(B.page, () => handball.mode) === 'menu', 'both back at the menu');
+  const text = await G(A.page, () => document.querySelector('#net').textContent + document.querySelector('#two').textContent);
+  check(!/[A-Za-z]/.test(text), 'the two-player screens are all Hebrew');
+  check(await A.page.isHidden('#hud'), 'no scoreboard behind the menus');
+  check(A.errors.length === 0 && B.errors.length === 0, 'no errors on either phone', [...A.errors, ...B.errors].slice(0, 3).join(' | '));
+  await ctx.close();
 });
 
 await browser.close();

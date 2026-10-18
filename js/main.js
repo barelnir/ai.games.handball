@@ -10,6 +10,7 @@ import { POWERS_ENABLED, ENERGY_MAX } from './powers.js';
 import { PROFILES, TEMPLATES, profileById, drawPortrait, kidHero } from './heroes.js';
 import { TVCam, makeFloor, renderTV } from './tv.js';
 import { ALL_TEAMS, HORNETS, teamById, opponentsOf, matchKits } from './clubs.js';
+import { host as netHost, join as netJoin } from './net.js';
 
 const $ = (s) => document.querySelector(s);
 const STEP = 1 / 60;
@@ -34,7 +35,8 @@ const save = () => { try { localStorage.setItem('handball8', JSON.stringify(sett
 
 let R = null;
 let game = null;
-let mode = 'menu';           // menu | play | paused | break
+let mode = 'menu';           // menu | pick | net | play | paused | break
+const inMenus = () => mode === 'menu' || mode === 'pick' || mode === 'net';
 let acc = 0, last = 0, now = 0;
 let excite = 0;
 const cam = { x: W / 2, y: H / 2, ppm: 20 };
@@ -136,10 +138,10 @@ function rollOpponent(saveNow = true) {
 // The power kid plays centre back; the other kids play left back, right back, line and left wing;
 // the Hornets fill the other places.
 const FRIEND_SPOTS = ['LB', 'RB', 'PV', 'LW'];
-function autoLineup(friends) {
+function autoLineup(friends, squad = 0) {
   const out = {};
   friends.slice(0, FRIEND_SPOTS.length).forEach((k, i) => { out[FRIEND_SPOTS[i]] = kidHero(profileById(k)); });
-  for (const h of T.SQUADS[0].heroes) if (h.role !== 'CB' && !out[h.role]) out[h.role] = h;
+  for (const h of T.SQUADS[squad].heroes) if (h.role !== 'CB' && !out[h.role]) out[h.role] = h;
   return out;
 }
 const CARD_HERO = { ...T.SQUADS[0].heroes[1], acc: [] }; // a plain player to show each team's shirt
@@ -190,7 +192,7 @@ function buildPick() {
     return { pr, el, r: createRenderer(el.querySelector('canvas'), { preferGL: false }) };
   });
   $('#oppChip').addEventListener('click', () => { if (settings.team !== 'hornets') { rollOpponent(); syncKids(); } });
-  $('#go').addEventListener('click', () => newMatch());
+  $('#go').addEventListener('click', () => (pick.two ? showNet() : newMatch()));
   $('#pickBack').addEventListener('click', goBack);
 }
 function syncTeams() {
@@ -216,6 +218,10 @@ function syncKids() {
   oc.textContent = `נגד ${opp.he}${withKid}` + (settings.team === 'hornets' ? '' : ' 🔀');
   oc.disabled = settings.team === 'hornets';
   oc.style.setProperty('--shirt', kitsFor(settings.team, settings.opponent)[1].shirt);
+  // two players: the friend brings their own team, so there is no opponent to show here
+  oc.hidden = pick.two;
+  $('#go').textContent = pick.two ? 'ממשיכים' : 'יאללה, משחקים!';
+  if (pick.two) $('#kidHint').textContent = '🎲 בתחילת המשחק נגריל לכל קבוצה ילד עם כוח מיוחד';
   $('#pickTitle').textContent = `מי משחק ב${teamOfSettings().he}?`;
 }
 function showPick(step) {
@@ -250,9 +256,10 @@ function renderPick() {
 // Back: kids -> team -> menu; in a match it pauses.
 function goBack() {
   if (mode === 'pick') { if (pick.step === 'kids') showPick('team'); else toMenu(); }
-  else if (mode === 'play') setMode('paused');
-  else if (mode === 'paused') setMode('play');
-  else if (mode === 'break') toMenu();
+  else if (mode === 'net') netBack();
+  else if (mode === 'play') act('pause');
+  else if (mode === 'paused') act('resume');
+  else if (mode === 'break') leave();
   if ($('#rules') && !$('#rules').hidden) $('#rules').hidden = true;
   if (!$('#settings').hidden) $('#settings').hidden = true;
 }
@@ -278,7 +285,7 @@ function newMatch() {
 function startMatch() {
   if (!setup) return newMatch();
   sound.unlock();
-  game = new Game({
+  const o = {
     human: 0,
     halfLen: +settings.half,
     difficulty: settings.difficulty,
@@ -289,15 +296,28 @@ function startMatch() {
     rivalPower: setup.oppPower,
     lineup: setup.lineup,
     kits: kitsFor(setup.team, setup.opponent),
-  });
+  };
+  // two players: the host's phone runs this match and the friend steers team 1 (human2); both phones
+  // build the same match from the same setup, and the friend's phone shows team 1 as its own
+  if (setup.two) Object.assign(o, { human2: 1, halfLen: setup.half, rules: setup.rules, lineup: autoLineup(setup.friends), lineup2: autoLineup(setup.friends2, 1) });
+  game = new Game(o);
+  if (net) {
+    if (net.role === 'guest') game.opts.human = 1;
+    else { game.inputs[1] = net.rin; net.link.send({ t: 'start', setup }); }
+  }
   $('.board .home .abbr').textContent = game.teams[0].kit.abbr;
   $('.board .away .abbr').textContent = game.teams[1].kit.abbr;
   $('.board .home .kit').style.background = game.teams[0].kit.shirt;
   $('.board .away .kit').style.background = game.teams[1].kit.shirt;
+  $('.board .home').classList.toggle('me', !!net && me() === 0);
+  $('.board .away').classList.toggle('me', !!net && me() === 1);
   game.input = input.state;
   // tell everyone who got the power this time
   const cap = profileById(setup.captain);
-  game.say(`הכוח של ${cap.nameHe}`, `${POWER_ICON[setup.power]} ${TEMPLATES[setup.power].label}`, 2.6, 'info');
+  if (setup.two) {
+    const cap2 = profileById(setup.captain2);
+    game.say(`הכוח של ${cap.nameHe} ושל ${cap2.nameHe}`, `${POWER_ICON[setup.power]} ${TEMPLATES[setup.power].label} · ${POWER_ICON[setup.oppPower]} ${TEMPLATES[setup.oppPower].label}`, 2.6, 'info');
+  } else game.say(`הכוח של ${cap.nameHe}`, `${POWER_ICON[setup.power]} ${TEMPLATES[setup.power].label}`, 2.6, 'info');
   setMode('play');
   requestWakeLock();
   if (input.touchUsed || matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
@@ -333,12 +353,19 @@ function setMode(m) {
   input.reset();
   $('#menu').hidden = m !== 'menu';
   $('#pick').hidden = m !== 'pick';
+  $('#net').hidden = m !== 'net';
   $('#pause').hidden = m !== 'paused';
   $('#break').hidden = m !== 'break';
-  $('#hud').hidden = m === 'menu' || m === 'pick';
+  $('#hud').hidden = inMenus();
   $('#touch').hidden = m !== 'play';
   if (m !== 'menu') { $('#rules').hidden = true; $('#settings').hidden = true; }
   resize();
+  // the host's phone decides: the friend's phone follows its play / pause / break
+  if (net && net.role === 'host' && (m === 'play' || m === 'paused' || m === 'break')) {
+    net.rin.aPress = net.rin.bPress = net.rin.bRelease = net.rin.pPress = false;
+    net.link.send({ t: 's', s: game.snapshot(), ev: [] });
+    net.link.send({ t: 'mode', m });
+  }
 }
 
 let wakeLock = null;
@@ -346,7 +373,7 @@ async function requestWakeLock() {
   try { if (navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch {}
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && mode === 'play') setMode('paused');
+  if (document.hidden && mode === 'play') act('pause');
   if (sound.ctx) { if (document.hidden) sound.ctx.suspend(); else sound.ctx.resume(); }
   if (!document.hidden && mode === 'play') requestWakeLock();
 });
@@ -365,7 +392,9 @@ function bindUI() {
     });
     sync();
   });
-  $('#play').addEventListener('click', () => { sound.unlock(); showPick('team'); });
+  $('#play').addEventListener('click', () => { sound.unlock(); pick.two = false; showPick('team'); });
+  $('#two').addEventListener('click', () => { sound.unlock(); pick.two = true; showPick('team'); });
+  bindNet();
   $('#again').addEventListener('click', () => { sound.unlock(); newMatch(); });
   $('#openSettings').addEventListener('click', () => { $('#settings').hidden = false; });
   $('#openRules').addEventListener('click', () => { $('#rules').hidden = false; });
@@ -373,14 +402,11 @@ function bindUI() {
   document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => { $('#' + b.dataset.close).hidden = true; }));
   $('#btnPause').addEventListener('click', togglePause);
   input.onPause = togglePause;
-  $('#resume').addEventListener('click', () => setMode('play'));
-  $('#restart').addEventListener('click', () => startMatch());
-  $('#toMenu').addEventListener('click', toMenu);
-  $('#brMenu').addEventListener('click', toMenu);
-  $('#brNext').addEventListener('click', () => {
-    if (game.state === 'halftime') { game.startSecondHalf(); setMode('play'); }
-    else startMatch();
-  });
+  $('#resume').addEventListener('click', () => act('resume'));
+  $('#restart').addEventListener('click', () => act('restart'));
+  $('#toMenu').addEventListener('click', leave);
+  $('#brMenu').addEventListener('click', leave);
+  $('#brNext').addEventListener('click', () => act('next'));
   $('#brNewOpp').addEventListener('click', newOpponent);
   const vb = $('#btnView');
   const syncView = () => {
@@ -433,8 +459,26 @@ function bindUI() {
 }
 
 function togglePause() {
-  if (mode === 'play') setMode('paused');
-  else if (mode === 'paused') setMode('play');
+  if (mode === 'play') act('pause');
+  else if (mode === 'paused') act('resume');
+}
+
+// Pause, resume, next half, restart: on the friend's phone these ask the host's phone, which does
+// them for both phones.
+function act(a) {
+  if (net && net.role === 'guest') { net.link.send({ t: 'ask', a }); return; }
+  if (a === 'pause' && mode === 'play') setMode('paused');
+  else if (a === 'resume' && mode === 'paused') setMode('play');
+  else if (a === 'restart' && (mode === 'paused' || mode === 'break')) startMatch();
+  else if (a === 'next' && mode === 'break') {
+    if (game.state === 'halftime') { game.startSecondHalf(); setMode('play'); }
+    else startMatch();
+  }
+}
+// Back to the menu (and, with two players, say goodbye to the other phone).
+function leave() {
+  if (net) { net.link.send({ t: 'bye' }); const l = net.link; net = null; setTimeout(() => l.close(), 300); }
+  toMenu();
 }
 
 function toMenu() {
@@ -443,20 +487,201 @@ function toMenu() {
   syncHome();
 }
 
+// ------------------------------------------------------------------ two players, two phones
+// Each player picks a team and kids on their own phone. One opens a game (gets a code), the other
+// joins with it (js/net.js links the phones). The host's phone runs the match: it gets the friend's
+// stick and buttons, and sends back a snapshot about 30 times a second, which the friend's phone draws.
+// net: null with one player; else { role: 'host' | 'guest', me (my team), link, ... }
+let net = null;
+const me = () => (net ? net.me : 0);
+const lobby = { box: 'choose', code: '', tries: 0, hosting: null };
+
+function showNet(box = 'choose', say = '') {
+  lobby.box = box;
+  for (const [k, id] of [['choose', '#netChoose'], ['host', '#netHostBox'], ['join', '#netJoinBox'], ['end', '#netEndBox']]) $(id).hidden = k !== box;
+  $('#netTitle').textContent = { choose: 'שני שחקנים', host: 'פותחים משחק', join: 'מצטרפים למשחק', end: 'שני שחקנים' }[box];
+  $('#netBack').textContent = box === 'end' ? 'לתפריט' : 'חזרה';
+  if (box === 'end') $('#netEndSay').textContent = say;
+  if (mode !== 'net') setMode('net');
+}
+const netSay = (sel, text, bad = false) => { $(sel).textContent = text; $(sel).classList.toggle('bad', bad); };
+function stopLobby() {
+  lobby.tries++; // a connection still on its way is dropped when it arrives
+  if (lobby.hosting) { lobby.hosting.cancel(); lobby.hosting = null; }
+}
+function netBack() {
+  stopLobby();
+  if (lobby.box === 'end') toMenu();
+  else if (lobby.box === 'choose') showPick('kids');
+  else showNet('choose');
+}
+
+function bindNet() {
+  $('#netBack').addEventListener('click', netBack);
+  $('#netHost').addEventListener('click', async () => {
+    goFullscreen();
+    showNet('host');
+    $('#netCode').textContent = '····';
+    netSay('#netStatus', 'מכינים קוד…');
+    const try_ = ++lobby.tries;
+    try {
+      const h = await netHost();
+      if (try_ !== lobby.tries) { h.cancel(); return; }
+      lobby.hosting = h;
+      $('#netCode').textContent = h.code;
+      netSay('#netStatus', 'מחכים שהחבר יקיש את הקוד…');
+      const link = await h.connected;
+      lobby.hosting = null;
+      if (try_ !== lobby.tries) { link.close(); return; }
+      connected('host', link);
+    } catch {
+      if (try_ === lobby.tries) netSay('#netStatus', 'אין חיבור לאינטרנט. בודקים ומנסים שוב.', true);
+    }
+  });
+  $('#netJoin').addEventListener('click', () => {
+    goFullscreen();
+    lobby.code = '';
+    $('#joinCode').textContent = '____';
+    netSay('#joinStatus', '');
+    showNet('join');
+  });
+  $('#keypad').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || lobby.connecting) return;
+    if (b.dataset.d === 'del') lobby.code = lobby.code.slice(0, -1);
+    else if (lobby.code.length < 4) lobby.code += b.dataset.d;
+    $('#joinCode').textContent = lobby.code.padEnd(4, '_');
+    netSay('#joinStatus', '');
+    if (lobby.code.length === 4) joinWith(lobby.code);
+  });
+}
+async function joinWith(code) {
+  const try_ = ++lobby.tries;
+  lobby.connecting = true;
+  netSay('#joinStatus', 'מתחברים…');
+  try {
+    const link = await netJoin(code, () => try_ !== lobby.tries);
+    if (try_ !== lobby.tries) { link.close(); return; }
+    connected('guest', link);
+  } catch (err) {
+    if (try_ !== lobby.tries) return;
+    lobby.code = '';
+    $('#joinCode').textContent = '____';
+    netSay('#joinStatus', {
+      nohost: 'לא מצאנו משחק עם הקוד הזה. בודקים את הקוד ומקישים שוב.',
+      server: 'אין חיבור לאינטרנט. בודקים ומנסים שוב.',
+    }[err] || 'לא הצלחנו להתחבר. כדאי ששני הטלפונים יהיו באותו וויי־פיי.', true);
+  } finally { lobby.connecting = false; }
+}
+
+function connected(role, link) {
+  net = {
+    role, link, me: role === 'host' ? 0 : 1, heard: now, sent: 0, events: [],
+    rin: { mx: 0, my: 0, bDown: false }, seen: { a: 0, b: 0, r: 0, p: 0 }, // host: the friend's buttons
+    cnt: { a: 0, b: 0, r: 0, p: 0 }, last: '', lastT: 0,                   // friend: my button presses
+  };
+  link.onmessage = onNet;
+  link.onclose = () => lost('החיבור עם החבר נותק.');
+  if (role === 'guest') {
+    netSay('#joinStatus', 'מחוברים! מתחילים…');
+    link.send({ t: 'hello', team: settings.team, players: settings.players });
+  } else netSay('#netStatus', 'מחוברים! מתחילים…');
+}
+function lost(say) {
+  if (!net) return;
+  const l = net.link;
+  net = null;
+  l.close();
+  startDemo();
+  showNet('end', say);
+}
+
+// The host builds the match from both players' choices. A kid can't play on both teams: the friend
+// gets another kid then (or, when the host took all four, one of the host's).
+function twoSetup(friend) {
+  const mine = [...settings.players];
+  let theirs = (friend.players || []).filter((k) => kidIds().includes(k) && !mine.includes(k));
+  if (!theirs.length) {
+    const free = kidIds().filter((k) => !mine.includes(k));
+    const want = (friend.players || []).find((k) => mine.includes(k));
+    if (free.length) theirs = [draw(free)];
+    else { theirs = [want || mine[mine.length - 1]]; mine.splice(mine.indexOf(theirs[0]), 1); }
+  }
+  const captain = draw(mine), captain2 = draw(theirs);
+  return {
+    two: true, team: settings.team, opponent: teamById(friend.team) && friend.team !== 'vipers' ? friend.team : 'hornets',
+    captain, friends: mine.filter((k) => k !== captain), captain2, friends2: theirs.filter((k) => k !== captain2),
+    oppKid: captain2, power: draw(POWER_KEYS), oppPower: draw(POWER_KEYS), half: +settings.half, rules: settings.rules,
+  };
+}
+
+function onNet(m) {
+  net.heard = now;
+  if (m.t === 'bye') { lost('החבר יצא מהמשחק.'); return; }
+  if (net.role === 'host') {
+    if (m.t === 'hello') { setup = twoSetup(m); startMatch(); }
+    else if (m.t === 'in') {
+      const r = net.rin;
+      r.mx = m.mx; r.my = m.my; r.bDown = !!m.bd;
+      // presses are counters, so none is lost or doubled
+      if (m.a > net.seen.a) r.aPress = true;
+      if (m.b > net.seen.b) r.bPress = true;
+      if (m.r > net.seen.r) r.bRelease = true;
+      if (m.p > net.seen.p) r.pPress = true;
+      net.seen = { a: m.a, b: m.b, r: m.r, p: m.p };
+    } else if (m.t === 'ask') act(m.a);
+    return;
+  }
+  if (m.t === 'start') { setup = m.setup; startMatch(); }
+  else if (m.t === 's' && game.opts.human2 === 1) {
+    game.applySnapshot(m.s);
+    game.events.push(...m.ev);
+  } else if (m.t === 'mode') {
+    if (m.m === 'break') showBreak();
+    else if (m.m === 'play' || m.m === 'paused') setMode(m.m);
+  }
+}
+
+// Host: send the friend's phone a snapshot (and what happened, for the sounds) about 30 times a second.
+function hostSend() {
+  if (now - net.sent < 1 / 30) return;
+  net.sent = now;
+  net.link.send({ t: 's', s: game.snapshot(), ev: net.events.splice(0) });
+}
+// Friend: send my stick and buttons, and draw the host's match.
+function guestFrame(dt) {
+  const s = input.read(), c = net.cnt;
+  if (s.aPress) c.a++;
+  if (s.bPress) c.b++;
+  if (s.bRelease) c.r++;
+  if (s.pPress) c.p++;
+  input.clearEdges();
+  const m = { t: 'in', mx: Math.round(s.mx * 100) / 100, my: Math.round(s.my * 100) / 100, bd: s.bDown ? 1 : 0, a: c.a, b: c.b, r: c.r, p: c.p };
+  const key = JSON.stringify(m);
+  // right away when something changed; otherwise 5 times a second, so the host knows we're here
+  if (key !== net.last || now - net.lastT > 0.2) { net.link.send(m); net.last = key; net.lastT = now; }
+  if (now - net.heard < 0.2 && game.state === 'play' && !(game.splash > 0)) game.coast(dt);
+  handleEvents();
+}
+
 // ------------------------------------------------------------------ loop
 function frame(t) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (t - last) / 1000 || 0);
   last = t;
   now += dt;
-  const demo = mode === 'menu' || mode === 'pick';
-  if (mode === 'play' || demo) {
+  const demo = inMenus();
+  if (mode === 'play' && net && net.role === 'guest') guestFrame(dt);
+  else if (mode === 'play' || demo) {
     if (mode === 'play') input.read();
     acc += dt;
     let n = 0;
-    while (acc >= STEP && n < 8) { game.step(STEP); acc -= STEP; n++; }
-    if (n === 8) acc = 0;
+    // two players: hold the match while the friend's phone is quiet (it went to sleep, or the Wi-Fi hiccups)
+    const held = mode === 'play' && net && now - net.heard > 1.5;
+    while (acc >= STEP && n < 8 && !held) { game.step(STEP); acc -= STEP; n++; }
+    if (n === 8 || held) acc = 0;
     handleEvents();
+    if (mode === 'play' && net) hostSend();
     if (demo) {
       if (game.state === 'halftime') game.startSecondHalf();
       else if (game.state === 'fulltime') startDemo();
@@ -466,19 +691,20 @@ function frame(t) {
   excite = Math.max(0, excite - dt * 0.35);
   updateCamera(dt);
   render();
-  if (mode !== 'menu' && mode !== 'pick') updateHUD();
+  if (!inMenus()) updateHUD();
 }
 
 function handleEvents() {
   const live = mode === 'play';
+  if (live && net && net.role === 'host') net.events.push(...game.events);
   for (const e of game.events) {
     if (!live) continue;
     switch (e.type) {
       case 'whistle': sound.whistle(e.n, e.short); break;
       case 'goal':
         excite = 1;
-        sound.crowd(e.team === 0 ? 0.55 : 0.3, 3);
-        if (e.team === 0 && navigator.vibrate) try { navigator.vibrate([30, 40, 60]); } catch {}
+        sound.crowd(e.team === me() ? 0.55 : 0.3, 3);
+        if (e.team === me() && navigator.vibrate) try { navigator.vibrate([30, 40, 60]); } catch {}
         break;
       case 'shot': sound.thud(0.5, 190); break;
       case 'pass': sound.thud(0.18, 240); break;
@@ -504,7 +730,7 @@ function updateCamera(dt) {
   const c = R.canvas;
   if (isTV()) {
     let tx = W / 2, ty = CY;
-    if (mode !== 'menu' && mode !== 'pick') {
+    if (!inMenus()) {
       const b = game.ball, r = b.owner || b;
       tx = r.x + (game.teams[game.poss].defX === 0 ? 1 : -1) * 2.5; ty = r.y;
     }
@@ -512,7 +738,7 @@ function updateCamera(dt) {
     return;
   }
   let ppm, tx, ty;
-  if (mode === 'menu' || mode === 'pick') {
+  if (inMenus()) {
     ppm = Math.min(c.width / 50, c.height / 27);
     tx = W / 2 - (c.width / ppm) * 0.12; ty = H / 2;
   } else {
@@ -527,7 +753,7 @@ function updateCamera(dt) {
   const minX = -4.5, maxX = W + 4.5, minY = -4, maxY = H + 3.5;
   tx = hw * 2 >= maxX - minX ? W / 2 : Math.min(Math.max(tx, minX + hw), maxX - hw);
   ty = hh * 2 >= maxY - minY ? H / 2 : Math.min(Math.max(ty, minY + hh), maxY - hh);
-  const k = mode === 'menu' || mode === 'pick' ? 1 : 1 - Math.exp(-dt * 4.5);
+  const k = inMenus() ? 1 : 1 - Math.exp(-dt * 4.5);
   cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; cam.ppm = ppm;
 }
 
@@ -537,7 +763,7 @@ const HINT = T.col('#ffd23f'), SOFT = T.col('#ffffff', 0.45);
 const trail = [];
 function render() {
   const g = game, b = g.ball;
-  if (g.splash > 0 && mode !== 'menu' && mode !== 'pick') { renderSplash(g.splash); return; }
+  if (g.splash > 0 && !inMenus()) { renderSplash(g.splash); return; }
   if (b.power && !b.owner && b.state !== 'dead') {
     trail.push({ x: b.x, y: b.y, z: b.z });
     if (trail.length > 26) trail.shift();
@@ -558,7 +784,7 @@ function render() {
   T.drawToonGoalBack(R, W);
 
   const c = g.controlled;
-  if (c && c.active && mode !== 'menu') T.drawMarker(R, c, now, HINT);
+  if (c && c.active && !inMenus()) T.drawMarker(R, c, now, HINT);
   if (g.passHint) T.drawMarker(R, g.passHint, now, SOFT);
 
   ents.length = 0;
@@ -589,7 +815,7 @@ function render() {
     } else T.toonPost(R, e.post, POST_HI);
   }
 
-  if (c && c.active && mode !== 'menu') {
+  if (c && c.active && !inMenus()) {
     T.drawHeadTag(R, c, now, HINT);
     drawRuleDots(R, c);
     if (c.charging) drawAim(c);
@@ -641,6 +867,7 @@ function drawAim(p) {
 
 // ------------------------------------------------------------------ HUD
 let lastMsg = null, hudKey = '';
+const WAITING = { title: 'מחכים לחבר…', sub: 'החיבור בין הטלפונים נחלש', kind: 'soft' };
 function updateHUD() {
   const g = game;
   $('#s0').textContent = g.teams[0].score;
@@ -648,14 +875,17 @@ function updateHUD() {
   $('#clock').textContent = g.clockText();
   $('#half').textContent = g.half === 1 ? 'מחצית 1' : 'מחצית 2';
 
-  if (g.msg !== lastMsg) {
-    lastMsg = g.msg;
+  // a message meant for the other phone's player isn't shown here
+  let msg = g.msg && (g.msg.only == null || g.msg.only === me()) ? g.msg : null;
+  if (net && mode === 'play' && now - net.heard > 1.5) msg = WAITING;
+  if (msg !== lastMsg) {
+    lastMsg = msg;
     const bn = $('#banner');
-    if (g.msg) {
-      $('#bTitle').textContent = g.msg.title;
-      $('#bSub').textContent = g.msg.sub || '';
-      $('#bSub').hidden = !g.msg.sub;
-      bn.className = `banner show ${g.msg.kind}`;
+    if (msg) {
+      $('#bTitle').textContent = msg.title;
+      $('#bSub').textContent = msg.sub || '';
+      $('#bSub').hidden = !msg.sub;
+      bn.className = `banner show ${msg.kind}`;
     } else bn.className = 'banner';
   }
 
@@ -672,7 +902,7 @@ function updateHUD() {
     }).join('');
   }
 
-  const b = g.ball, h = 0;
+  const b = g.ball, h = me();
   const attacking = b.owner && b.owner.team === h;
   const gkBall = attacking && b.owner.gk;
   const la = attacking ? 'מסירה' : 'החלף', lb = gkBall ? 'הוצאה' : attacking ? 'זריקה' : 'חטיפה';
@@ -690,21 +920,22 @@ function updateHUD() {
 function showBreak() {
   if (mode === 'break') return;
   const g = game;
-  const [a, z] = g.teams;
+  const [a, z] = g.teams, mine = g.teams[me()], other = g.teams[1 - me()];
   const half = g.state === 'halftime';
-  $('#brEyebrow').textContent = half ? 'מחצית' : a.score > z.score ? 'סיום · ניצחתם!' : a.score < z.score ? `סיום · ${z.kit.he} ניצחו` : 'סיום · תיקו';
+  $('#brEyebrow').textContent = half ? 'מחצית' : mine.score > other.score ? 'סיום · ניצחתם!' : mine.score < other.score ? `סיום · ${other.kit.he} ניצחו` : 'סיום · תיקו';
   $('#brScore').textContent = `${a.score} : ${z.score}`;
   const rows = [['שערים', 'goals'], ['זריקות', 'shots'], ['הצלות', 'saves'], ['חטיפות', 'steals'], ['עבירות', 'fouls'], ['2 דקות', 'suspensions']];
   $('#brStats').innerHTML = rows.map(([l, k]) => `<tr><td>${a.stats[k]}</td><td>${l}</td><td>${z.stats[k]}</td></tr>`).join('');
   $('#brNext').textContent = half ? 'למחצית השנייה' : 'עוד משחק!';
   // a new opponent only after the match, and not for הצרעות (they always meet הצפעונים)
-  $('#brNewOpp').hidden = half || !setup || setup.team === 'hornets';
+  $('#brNewOpp').hidden = half || !setup || setup.team === 'hornets' || !!net;
   setMode('break');
 }
 
 // Read-only handle for automated tests (tests/e2e.mjs).
 // for tests: look at the game, and replay the current match with some choices fixed (e.g. the power)
 window.handball = { get game() { return game; }, get mode() { return mode; }, get setup() { return setup; }, input,
+  get net() { return net && { role: net.role, me: net.me, open: net.link.open }; },
   replayWith(o) { Object.assign(setup, o); if (o.friends) setup.lineup = autoLineup(setup.friends); startMatch(); } };
 
 boot();

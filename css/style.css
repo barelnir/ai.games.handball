@@ -62,6 +62,8 @@ button:focus-visible { outline: 2px solid var(--hornet); outline-offset: 2px; }
 .board .kit { width: 10px; height: 18px; border-radius: 2px; display: block; }
 .board .home .kit { background: var(--hornet); }
 .board .away .kit { background: var(--viper); }
+/* two players: your own team is marked on your phone */
+.board .team.me { box-shadow: inset 0 -3px 0 var(--hornet); background: rgba(255, 210, 63, 0.14); }
 .board .score { display: flex; align-items: center; gap: 4px; padding: 0 10px; font-size: 28px; background: rgba(255, 255, 255, 0.06); }
 .board .score span { opacity: 0.5; }
 .board .clock { display: flex; flex-direction: column; justify-content: center; padding: 2px 10px; border-left: 1px solid var(--line); font-size: 18px; line-height: 1; }
@@ -262,6 +264,27 @@ body:not(.touch) #stick { display: none; }
   .lu-card { width: 92px; padding: 4px; }
   .pick-panel { gap: 6px; }
 }
+/* two players: open a game (show the code) or join one (type the code) */
+.net-panel { max-width: 380px; }
+.net-panel:has(#netJoinBox:not([hidden])) { max-width: 600px; }
+.net-say { margin: 0 0 8px; font-size: 17px; font-weight: 700; }
+.net-status { margin: 10px 0 0; min-height: 1.3em; color: var(--hornet); font-size: 16px; font-weight: 800; }
+.net-status.bad { color: #ff8a7a; }
+.cta.alt { background: #7fe7ff; }
+.code { font: 900 56px/1 var(--display); letter-spacing: 0.18em; padding: 10px 0 6px 0.18em; color: var(--ink); background: rgba(0, 0, 0, 0.28); border-radius: 12px; font-variant-numeric: tabular-nums; }
+.join { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; text-align: center; }
+.keypad { display: grid; grid-template-columns: repeat(3, 58px); gap: 6px; }
+.keypad button { height: 48px; border: 2px solid var(--outline); border-radius: 12px; background: rgba(255, 255, 255, 0.1); font: 900 24px/1 var(--display); }
+.keypad button:active { background: var(--hornet); color: #1b2a4a; }
+.net-foot { justify-content: center; margin-top: 14px; }
+@media (max-height: 430px) {
+  .net-panel { padding: 14px 18px; }
+  .net-panel h2 { font-size: 24px; margin-bottom: 8px; }
+  .keypad { grid-template-columns: repeat(3, 54px); gap: 5px; }
+  .keypad button { height: 44px; }
+  .code { font-size: 46px; }
+  .net-foot { margin-top: 8px; }
+}
 /* home: "play again" with last time's setup */
 .again { display: grid; gap: 4px; justify-items: center; margin-bottom: 12px; padding: 12px 34px; }
 .again small { font: 800 16px/1.2 var(--display); text-transform: none; }
@@ -314,6 +337,14 @@ legend { float: inline-start; width: 70px; font-size: 14px; font-weight: 700; le
 .stats td:first-child, .stats td:last-child { font-weight: 700; width: 3.5em; }
 .stats td:nth-child(2) { color: var(--muted); font-size: 13px; }
 #brScore { font-size: 54px; }
+/* a phone held sideways: score and buttons on one side, the numbers on the other, all on screen */
+@media (max-height: 430px) {
+  #break .panel { max-width: 640px; display: grid; grid-template-columns: 1fr 1.2fr; grid-template-areas: 'eye stats' 'score stats' 'btns stats'; column-gap: 22px; align-items: center; padding: 16px 20px; }
+  #brEyebrow { grid-area: eye; }
+  #brScore { grid-area: score; margin: 0; font-size: 50px; }
+  #brStats { grid-area: stats; }
+  #break .col { grid-area: btns; margin-top: 10px; }
+}
 
 #rotate { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(13, 22, 34, 0.92); text-align: center; padding: 24px; font: 900 26px/1.3 var(--display); letter-spacing: 0; text-transform: uppercase; }
 

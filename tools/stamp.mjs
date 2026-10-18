@@ -21,7 +21,7 @@ for (const f of files) {
   // <script src="js/main.js"> and <link href="css/style.css">
   s = s.replace(/((?:src|href)=")((?:js|css)\/[^"?]+\.(?:js|css))(")/g, `$1$2?v=${v}$3`);
   // service worker cache name
-  s = s.replace(/const CACHE = 'handball7-[^']*'/, `const CACHE = 'handball7-${v}'`);
+  s = s.replace(/const CACHE = 'handball(\d+)-[^']*'/, `const CACHE = 'handball$1-${v}'`);
   if (s !== before) { fs.writeFileSync(p, s); n++; }
 }
 console.log(`stamped ${n} files with v=${v}`);

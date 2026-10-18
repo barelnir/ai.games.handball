@@ -38,7 +38,7 @@ export class PowerSystem {
     return m;
   }
 
-  rate(team) { return team.idx === this.game.opts.human ? 1 : RIVAL_GAIN; }
+  rate(team) { return this.game.isHuman(team.idx) ? 1 : RIVAL_GAIN; }
 
   gain(team, what) {
     team.energy = Math.min(ENERGY_MAX, team.energy + (GAIN[what] || 0) * this.rate(team));
@@ -91,8 +91,8 @@ export class PowerSystem {
       }
     }
     if (fx.freezeTeam) {
-      // the computer's ice only holds you for 1.5 s, so you never feel stuck for long
-      const secs = 1 - carrier.team === g.opts.human ? 1.5 : fx.freezeTeam;
+      // ice only holds a player's team for 1.5 s, so nobody feels stuck for long
+      const secs = g.isHuman(1 - carrier.team) ? 1.5 : fx.freezeTeam;
       for (const p of g.teams[1 - carrier.team].players) if (p.active) { p.frozen = secs; p.iced = true; }
     }
     g.ball.power = tp.ball;

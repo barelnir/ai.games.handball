@@ -5,7 +5,7 @@
   "description": "כדוריד הגיבורים: a cartoon handball game in plain HTML + WebGL, in Hebrew. No build step.",
   "scripts": {
     "start": "python3 -m http.server 8080",
-    "test": "node tests/sim.mjs && node tests/power.mjs && node tests/pass.mjs && node tests/lineup.mjs",
+    "test": "node tests/sim.mjs && node tests/power.mjs && node tests/pass.mjs && node tests/lineup.mjs && node tests/twoplayer.mjs",
     "e2e": "node tests/run-e2e.mjs",
     "e2e:serial": "node tests/e2e.mjs"
   }
