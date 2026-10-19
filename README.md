@@ -134,4 +134,4 @@ Choices are saved under `handball8`. Older `handball7` data carries over once.
 
 ## Deploy (GitHub Pages)
 
-`.github/workflows/pages.yml` runs `npm test`, stamps every JS/CSS URL with the commit (`tools/stamp.mjs`, so phones never mix old and new files from their cache), and publishes the site on every push to `main`. One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The game is then at `https://<user>.github.io/ai.games.handball/`.
+`.github/workflows/pages.yml` runs `npm test`, stamps every JS/CSS URL with the commit (`tools/stamp.mjs`, so phones never mix old and new files from their cache), and publishes the site on every push to `main`. The stamp also writes the version into the game and into `version.txt`; the game checks it every minute and reloads itself on the home screen when a new version is out (never in a match), so nobody has to close and reopen the site. One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The game is then at `https://<user>.github.io/ai.games.handball/`.

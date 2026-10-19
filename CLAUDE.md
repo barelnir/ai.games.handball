@@ -17,7 +17,7 @@ The owner is handing the project to **Eitan Barel** (one of the kids in the game
   - `tests/lineup.mjs`: line-ups and no duplicate heroes.
 - **Browser tests:** `npm run e2e`, about 2 min.
   - The real game runs in headless Chromium as an 844×390 phone, with real CDP touch events.
-  - The 10 sections run in parallel, 3 at a time, through `tests/run-e2e.mjs`.
+  - The 11 sections run in parallel, 3 at a time, through `tests/run-e2e.mjs`.
   - `ONLY=flow,kids` runs some sections, and `JOBS=n` sets the parallelism.
   - `E2E_DPR=2` gives sharper screenshots but runs slower.
   - Screenshots go to `test-results/`, which is git-ignored. Look at them after UI changes.
@@ -34,7 +34,7 @@ The owner is handing the project to **Eitan Barel** (one of the kids in the game
    - The kid is spelled **רפל**, not "רפאל".
 5. **Keep the flow simple.** It was decided with a UX/PM review and the parent; see `docs/HISTORY.md`. The flow is: home → team → which kids play → match, which is 3 taps. The power kid and the power are drawn at kick-off. Don't bring back the captain picker, the power picker or the position editor without being asked.
 6. **Official club logos are not bundled.** Club emblems are our own shields (`drawCrest` in `js/toon.js`); national teams wear their flags (`drawFlag`). See `docs/ROADMAP.md` for adding real logos.
-7. **Explain to the user in Hebrew** what changed, how it was tested, and what they need to do: close and reopen the site.
+7. **Explain to the user in Hebrew** what changed and how it was tested. The site updates itself: within about a minute of the deploy the game reloads on the home screen (never in a match), so there is no need to close and reopen it. A phone that is showing a match gets the new version the next time it goes back to the home screen.
 
 ## Architecture in one breath
 - **`js/main.js`:**
@@ -66,6 +66,7 @@ More detail is in `docs/ARCHITECTURE.md`.
 - **Waiting for a full match:** fast-forward the simulation in the page (`game.step` in a loop) instead of letting the render loop run; see the `match` section.
 - **The computer's ice power can freeze your player for 1.5 s.** Tests that steer wait until `!(controlled.frozen > 0)` and `!(splash > 0)`.
 - **The service-worker cache name and every JS/CSS URL are stamped at deploy time.** Add new JS files to `sw.js` `CORE`, which is the offline list.
+- **Self-update:** the stamp also writes `VERSION` in `js/main.js` and a `version.txt` file. `checkVersion()` reads `version.txt` every minute and when the game comes back to the screen; a new version reloads the game on the home screen only. Locally `VERSION` is `'dev'` and nothing is checked. The e2e `update` section tests this on a stamped copy.
 - **Corner buttons need quick repeated taps to register.** The double-tap-zoom blocker in `blockPageZoom()` skips `.corner button`, `.seg` and the menu buttons; keep it that way.
 - **Most of the internet is blocked in the cloud container,** including Wikipedia, Google and handball.org.il. `WebSearch` works. To fetch images, the user must add hosts in the environment's network settings.
 

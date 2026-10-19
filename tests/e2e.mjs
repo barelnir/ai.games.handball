@@ -152,7 +152,7 @@ await run('flow', async () => {
   const labels = await G(page, () => ['#lA', '#lB', '#btnP span', '#btnP small', '#half', '.board .home .abbr', '#bTitle'].map((s) => document.querySelector(s).textContent).join(' '));
   check(!/[A-Za-z]/.test(labels), 'in-game labels are Hebrew', labels);
   const drawn = await G(page, () => ({ kid: handball.game.profile.nameHe, power: handball.game.template.label, msg: handball.game.msg && handball.game.msg.title + ' ' + handball.game.msg.sub }));
-  check(['איתן', 'אמה', 'אייל', 'רפל'].includes(drawn.kid) && drawn.msg.includes(drawn.kid) && drawn.msg.includes(drawn.power), 'kick-off tells who got which power', drawn.msg);
+  check(['איתן', 'אמה', 'אייל', 'רפל', 'רוי', 'כהן'].includes(drawn.kid) && drawn.msg.includes(drawn.kid) && drawn.msg.includes(drawn.power), 'kick-off tells who got which power', drawn.msg);
   let peak = 0;
   for (let i = 0; i < 12; i++) { peak = Math.max(peak, await G(page, () => { const c = window.__acs[0]; if (!c) return 0; const d = new Float32Array(2048); c.__an.getFloatTimeDomainData(d); return Math.max(...d.map(Math.abs)); })); await wait(page, 100); }
   check(peak > 0.1, 'music is playing', `peak ${peak.toFixed(2)}`);
@@ -523,6 +523,54 @@ await run('match', async () => {
   check(await G(page, () => handball.game.teams.map((x) => x.kit.he).join()) === before, '"עוד משחק!" plays the same match again');
   check(errors.length === 0, 'no page errors (match)', errors.slice(0, 2).join(' | '));
   await page.close();
+});
+
+// ---------------------------------------------------------------- a new version arrives by itself
+await run('update', async () => {
+  // a stamped copy of the site, like the deploy makes, served on its own little server
+  const os = await import('node:os');
+  const { execFileSync } = await import('node:child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-update-'));
+  for (const f of ['index.html', 'sw.js', 'manifest.webmanifest', 'css', 'js', 'assets', 'tools']) fs.cpSync(path.join(root, f), path.join(dir, f), { recursive: true });
+  execFileSync(process.execPath, [path.join(dir, 'tools/stamp.mjs'), 'v1'], { stdio: 'ignore' });
+  const srv = http.createServer((req, res) => {
+    let f = path.join(dir, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+    if (f.endsWith('/')) f += 'index.html';
+    if (!fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-type': types[path.extname(f)] || 'text/plain' });
+    fs.createReadStream(f).pipe(res);
+  });
+  await new Promise((r) => srv.listen(0, r));
+  const P = await phone();
+  const { page, t, errors } = P;
+  await page.goto(`http://localhost:${srv.address().port}/index.html`); await ready(page);
+  const mark = () => G(page, () => { window.__same = 1; });
+  const same = () => G(page, () => window.__same === 1);
+  const check4 = () => G(page, () => document.dispatchEvent(new Event('visibilitychange'))); // "the game came back to the screen"
+  await mark(); await check4(); await wait(page, 800);
+  check(await same(), 'same version: the game does not reload');
+  // a new version is deployed while a match is on: no reload in the match...
+  await startMatchHere();
+  await mark();
+  fs.writeFileSync(path.join(dir, 'version.txt'), 'v2\n');
+  await check4(); await wait(page, 1000);
+  check(await same() && await G(page, () => handball.mode) === 'play', 'a new version never interrupts a match');
+  // ...it loads by itself back on the home screen
+  await t.tapEl('#btnPause'); await t.tapEl('#toMenu');
+  await page.waitForFunction(() => window.__same !== 1, null, { timeout: 10000 }).then(() => check(true, 'back on the home screen the new version loads by itself'), () => check(false, 'back on the home screen the new version loads by itself'));
+  await ready(page);
+  check(await G(page, () => handball.mode) === 'menu', 'after the update: the home screen');
+  check(errors.length === 0, 'no errors while updating', errors.join(' | '));
+  await page.close();
+  srv.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+
+  async function startMatchHere() {
+    await t.tapEl('#play'); await wait(page, 300);
+    await t.tapEl('#teamCards .lu-card:visible', 0); await wait(page, 300);
+    await t.tapEl('#go');
+    await page.waitForFunction(() => handball.mode === 'play', null, { timeout: 15000 });
+  }
 });
 
 await browser.close();

@@ -70,6 +70,7 @@ async function boot() {
   bindUI();
   buildPick();
   requestAnimationFrame(frame);
+  setInterval(checkVersion, 60000);
   if ('serviceWorker' in navigator && location.protocol === 'https:' && window.top === window) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
@@ -355,6 +356,7 @@ async function requestWakeLock() {
   try { if (navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch {}
 }
 document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkVersion();
   if (document.hidden && mode === 'play') setMode('paused');
   if (sound.ctx) { if (document.hidden) sound.ctx.suspend(); else sound.ctx.resume(); }
   if (!document.hidden && mode === 'play') requestWakeLock();
@@ -450,6 +452,26 @@ function toMenu() {
   startDemo();
   setMode('menu');
   syncHome();
+  reloadIfNew();
+}
+
+// A new version reaches the phone by itself, with no need to close the site: the deploy writes the
+// version into VERSION and into version.txt. Every minute (and when the game comes back to the
+// screen) we look at version.txt; when it changed, the game reloads on the home screen, never in a match.
+const VERSION = 'dev';
+let newVersion = false;
+async function checkVersion() {
+  if (VERSION === 'dev' || newVersion) return reloadIfNew();
+  try {
+    const r = await fetch('version.txt', { cache: 'no-store' });
+    const v = r.ok ? (await r.text()).trim() : '';
+    if (v && v !== VERSION) newVersion = true;
+  } catch {} // offline: keep playing this version
+  reloadIfNew();
+}
+function reloadIfNew() {
+  const quiet = mode === 'menu' && $('#settings').hidden && $('#rules').hidden;
+  if (newVersion && quiet) location.reload();
 }
 
 // ------------------------------------------------------------------ loop

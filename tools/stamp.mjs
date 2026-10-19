@@ -20,8 +20,11 @@ for (const f of files) {
   s = s.replace(/(from\s+['"])(\.{1,2}\/[^'"?]+\.js)(['"])/g, `$1$2?v=${v}$3`);
   // <script src="js/main.js"> and <link href="css/style.css">
   s = s.replace(/((?:src|href)=")((?:js|css)\/[^"?]+\.(?:js|css))(")/g, `$1$2?v=${v}$3`);
+  // the game's own version (main.js checks version.txt against it, to update by itself)
+  s = s.replace(/const VERSION = '[^']*'/, `const VERSION = '${v}'`);
   // service worker cache name
   s = s.replace(/const CACHE = 'handball(\d+)-[^']*'/, `const CACHE = 'handball$1-${v}'`);
   if (s !== before) { fs.writeFileSync(p, s); n++; }
 }
+fs.writeFileSync(path.join(root, 'version.txt'), v + '\n');
 console.log(`stamped ${n} files with v=${v}`);

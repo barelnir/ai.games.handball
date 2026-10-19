@@ -126,7 +126,8 @@ Robust release handling covers window-level `pointerup`/`pointercancel`, `lostpo
 ## Offline and deploy
 - `sw.js` is the service worker. Requests go to the network first, with the cache as a fallback (`no-cache` fetches). `CORE` lists the files to cache, so **add new files there**.
 - `manifest.webmanifest` lets the game be installed to the home screen.
-- `tools/stamp.mjs <sha>` runs only in CI. It versions every URL and the cache name, so phones never mix old and new files.
+- `tools/stamp.mjs <sha>` runs only in CI. It versions every URL and the cache name, so phones never mix old and new files. It also sets `VERSION` in `main.js` and writes `version.txt`.
+- **Self-update:** `checkVersion()` in `main.js` fetches `version.txt` every minute and when the page becomes visible. When it differs from `VERSION`, the game reloads as soon as it is on the home screen (`reloadIfNew()`, also called from `toMenu()`), never during a match.
 - `.github/workflows/pages.yml` runs: `npm test` → stamp → GitHub Pages (on every push to `main`).
 
 ## Tests
