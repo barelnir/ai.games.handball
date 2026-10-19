@@ -2,7 +2,7 @@
 const CACHE = 'handball8-v1';
 const CORE = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest', 'assets/icon.svg',
-  'js/main.js', 'js/game.js', 'js/court.js', 'js/render.js', 'js/input.js', 'js/audio.js', 'js/powers.js', 'js/toon.js', 'js/heroes.js', 'js/tv.js', 'js/clubs.js', 'js/net.js',
+  'js/main.js', 'js/game.js', 'js/court.js', 'js/render.js', 'js/input.js', 'js/audio.js', 'js/powers.js', 'js/toon.js', 'js/heroes.js', 'js/tv.js', 'js/clubs.js',
 ];
 
 self.addEventListener('install', (e) => {

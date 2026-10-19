@@ -36,8 +36,6 @@ const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
 const hyp = Math.hypot;
 
-const NET_FX = [{ id: 'net' }]; // a powered-up player on the friend's phone (just for the glow)
-
 const VIOLATIONS = {
   steps: 'יותר מדי צעדים',
   three: 'החזקה ארוכה מדי',
@@ -63,9 +61,7 @@ export class Game {
     this.opts = Object.assign({ halfLen: 300, difficulty: 'normal', rules: 'full', human: 0 }, opts);
     this.diffAI = DIFFICULTY[this.opts.difficulty] || DIFFICULTY.normal;
     this.events = [];
-    // one input per team: a human team reads its own (two players on two phones: human and human2)
-    this.inputs = [{}, {}];
-    this.ctrl = [null, null]; this.hints = [null, null];
+    this.input = {};
     this.powers = new PowerSystem(this);
     this.teams = [0, 1].map((i) => ({
       idx: i, kit: { ...KITS[i] }, score: 0, defX: i === 0 ? 0 : W, energy: 100,
@@ -106,8 +102,6 @@ export class Game {
         this.powers.configure(t.idx, tp, t.idx === 1 ? RIVAL : profileById(), cb);
       }
     }
-    // two players: the second player's line-up goes on first, then yours swaps out any hero on both teams
-    if (this.opts.lineup2 && this.isHuman(1 - h)) this.applyLineup(this.teams[1 - h], this.teams[h], this.opts.lineup2, false);
     if (this.opts.lineup && h >= 0) this.applyLineup(this.teams[h], this.teams[1 - h], this.opts.lineup);
     this.ball = {
       x: CX, y: CY, z: 0, vx: 0, vy: 0, vz: 0, owner: null, state: 'dead', passTo: null, tx: 0, ty: 0,
@@ -122,6 +116,7 @@ export class Game {
     this.poss = 0; this.attackT = 0; this.passive = false; this.passivePasses = 0;
     this.passiveTime = 25;
     this.suspLen = Math.max(20, (120 * this.opts.halfLen) / 1800);
+    this.controlled = null; this.passHint = null;
     this.msg = null; this.signal = null; this.lock = null; this.sp = null; this.timer = 0;
     this.chaser = [null, null]; this.presser = [null, null];
     this.firstThrow = Math.random() < 0.5 ? 0 : 1;
@@ -130,22 +125,12 @@ export class Game {
   }
 
   get full() { return this.opts.rules === 'full'; }
-  // A team is human when a player steers it: `human` (this phone) or `human2` (the friend's phone).
-  isHuman(t) { return t >= 0 && (t === this.opts.human || t === this.opts.human2); }
-  get humans() { return [0, 1].filter((t) => this.isHuman(t)); }
-  isCtrl(p) { return this.ctrl[p.team] === p; }
-  // `input`, `controlled` and `passHint` are the ones of this phone's team (`human`)
-  get input() { return this.inputs[Math.max(0, this.opts.human)]; }
-  set input(v) { this.inputs[Math.max(0, this.opts.human)] = v; }
-  get controlled() { return this.opts.human >= 0 ? this.ctrl[this.opts.human] : null; }
-  set controlled(p) { if (this.opts.human >= 0) this.ctrl[this.opts.human] = p; }
-  get passHint() { return this.opts.human >= 0 ? this.hints[this.opts.human] : null; }
   emit(e) { this.events.push(e); }
-  say(title, sub = '', t = 1.6, kind = 'info', only = null) { this.msg = { title, sub, t, kind, only }; }
+  say(title, sub = '', t = 1.6, kind = 'info') { this.msg = { title, sub, t, kind }; }
   attackX(t) { return t.defX === 0 ? W : 0; }
   dir(t) { return t.defX === 0 ? 1 : -1; }
   diffFor(p) {
-    if (!this.isHuman(p.team)) return this.diffAI;
+    if (this.opts.human < 0 || p.team !== this.opts.human) return this.diffAI;
     return DIFFICULTY.normal;
   }
   teamOf(p) { return this.teams[p.team]; }
@@ -169,6 +154,7 @@ export class Game {
 
   // ---------------------------------------------------------------- main step
   step(dt) {
+    const inp = this.input || {};
     this.time += dt;
     if (this.msg && (this.msg.t -= dt) <= 0) this.msg = null;
     if (this.signal && (this.signal.t -= dt) <= 0) this.signal = null;
@@ -188,20 +174,15 @@ export class Game {
       this.sp.t += dt;
       if (this.sp.t >= this.sp.setup) {
         this.state = 'play';
-        this.sp.taker.holdT = this.isHuman(this.sp.team) ? -2 : 0; // a little extra time for you
+        this.sp.taker.holdT = this.sp.team === this.opts.human ? -2 : 0; // a little extra time for you
         this.emit({ type: 'whistle', n: 1, short: true });
       }
     }
 
-    this.hints = [null, null];
-    for (const h of this.humans) {
-      const inp = this.inputs[h] || {};
-      this.updateControl(h, inp);
-      if (this.state === 'play') this.updateHuman(h, inp, dt);
-      else if (this.state === 'setpiece') this.powerButton(h, inp); // POWER works at throw-offs and free throws too
-    }
-    if (!this.humans.length) this.ctrl = [null, null];
-    this.updatePlayers(dt);
+    this.updateControl(inp);
+    if (this.state === 'play') this.updateHuman(inp, dt);
+    else if (this.state === 'setpiece') this.powerButton(inp); // POWER works at throw-offs and free throws too
+    this.updatePlayers(dt, inp);
     this.updateBall(dt);
     if (this.state === 'play') { this.updateRules(dt); this.aiPowers(dt); }
     this.updateRefs(dt);
@@ -209,13 +190,18 @@ export class Game {
   }
 
   clearEdges() {
-    for (const i of this.inputs) if (i) i.aPress = i.bPress = i.bRelease = i.pPress = false;
+    const i = this.input;
+    if (!i) return;
+    i.aPress = i.bPress = i.bRelease = i.pPress = false;
   }
 
   // ---------------------------------------------------------------- human control
-  updateControl(h, inp) {
+  updateControl(inp) {
+    const h = this.opts.human;
+    this.passHint = null;
+    if (h < 0) { this.controlled = null; return; }
     const team = this.teams[h], b = this.ball;
-    let c = this.ctrl[h];
+    let c = this.controlled;
     if (c && !c.active) c = null;
     if (b.owner && b.owner.team === h) c = b.owner;
     else if (b.state === 'pass' && b.passTo && b.passTo.team === h) c = b.passTo;
@@ -230,23 +216,22 @@ export class Game {
         if (n) c = n;
       }
     }
-    this.ctrl[h] = c;
-    if (c && b.owner === c) this.hints[h] = this.pickPassTarget(c, inp.mx || 0, inp.my || 0);
+    this.controlled = c;
+    if (c && b.owner === c) this.passHint = this.pickPassTarget(c, inp.mx || 0, inp.my || 0);
   }
 
-  powerButton(h, inp) {
-    if (!inp.pPress) return;
+  powerButton(inp) {
+    if (!inp.pPress || this.opts.human < 0) return;
     inp.pPress = false;
-    const r = this.powers.activate(h);
-    const pct = Math.floor(this.teams[h].energy);
-    // only that player's phone shows these (msg.only)
-    if (r === 'energy') this.say('הכוח נטען', `${pct}%`, 1.2, 'soft', h);
-    else if (r === 'armed') this.say('הכוח דרוך!', 'יופעל כשתשיגו את הכדור', 1.6, 'soft', h);
+    const r = this.powers.activate(this.opts.human);
+    const pct = Math.floor(this.teams[this.opts.human].energy);
+    if (r === 'energy') this.say('הכוח נטען', `${pct}%`, 1.2, 'soft');
+    else if (r === 'armed') this.say('הכוח דרוך!', 'יופעל כשתשיגו את הכדור', 1.6, 'soft');
   }
 
-  updateHuman(h, inp, dt) {
-    const c = this.ctrl[h], b = this.ball;
-    this.powerButton(h, inp);
+  updateHuman(inp, dt) {
+    const c = this.controlled, b = this.ball;
+    this.powerButton(inp);
     if (!c) return;
     if (b.owner === c) {
       if (inp.aPress) {
@@ -287,8 +272,8 @@ export class Game {
   }
 
   // ---------------------------------------------------------------- players
-  updatePlayers(dt) {
-    const b = this.ball, none = {};
+  updatePlayers(dt, inp) {
+    const b = this.ball;
     this.computeRoles();
     for (const p of this.all) {
       if (!p.active) { this.benchPose(p, dt); continue; }
@@ -298,11 +283,10 @@ export class Game {
 
       let want = null;
       if (p.frozen > 0 && !p.gk) { p.vx *= 0.8; p.vy *= 0.8; continue; } // frozen in a block of ice
-      const mine = this.isCtrl(p), inp = mine ? this.inputs[p.team] || none : none;
-      if (b.owner === p && !mine) this.aiCarrier(p, dt);
+      if (b.owner === p && p !== this.controlled) this.aiCarrier(p, dt);
       // your own player is never locked for a human: the joystick always works
-      const locked = this.lock && this.lock.p === p && !mine;
-      const stickOn = mine && hyp(inp.mx || 0, inp.my || 0) > 0.15;
+      const locked = this.lock && this.lock.p === p && p !== this.controlled;
+      const stickOn = p === this.controlled && hyp(inp.mx || 0, inp.my || 0) > 0.15;
       if ((this.state === 'setpiece' || this.state === 'goal') && stickOn) {
         want = [inp.mx, inp.my, 1];
       } else if (this.state === 'setpiece' || this.state === 'goal') {
@@ -312,7 +296,7 @@ export class Game {
         want = [0, 0, 0];
       } else if (this.lock && this.lock.penalty && !(p.gk && p.team !== this.lock.p.team)) {
         want = [0, 0, 0];
-      } else if (mine) {
+      } else if (p === this.controlled) {
         const mx = inp.mx || 0, my = inp.my || 0;
         const l = hyp(mx, my);
         want = l > 1 ? [mx / l, my / l, 1] : [mx, my, 1];
@@ -570,7 +554,7 @@ export class Game {
   aiPowers(dt) {
     const b = this.ball, c = b.owner;
     if (this.opts.rivalPowers === false) return;
-    if (!c || c.gk || b.power || this.splash > 0 || this.isHuman(c.team)) return;
+    if (!c || c.gk || b.power || this.splash > 0 || c.team === this.opts.human) return;
     const t = this.teams[c.team];
     if (t.energy < 100 || goalDist(c.x, c.y, this.attackX(t)) > 18) return;
     if (Math.random() < dt * 3) this.powers.activate(c.team); // decides within a moment
@@ -689,7 +673,8 @@ export class Game {
     this.ball.power = null;
     if (this.poss !== team) this.teams[this.poss].stats.turnovers++;
     this.poss = team; this.attackT = 0; this.passive = false; this.passivePasses = 0;
-    for (const h of this.humans) if (team !== h) this.ctrl[h] = this.nearest(this.teams[h], this.ball.x, this.ball.y);
+    const h = this.opts.human;
+    if (h >= 0 && team !== h) this.controlled = this.nearest(this.teams[h], this.ball.x, this.ball.y);
   }
 
   releaseFrom(p) {
@@ -701,13 +686,12 @@ export class Game {
 
   // Your chosen line-up (role -> hero; your kid stays centre back). The computer's team then swaps
   // out any hero you took, so nobody plays on both sides.
-  applyLineup(mine, rival, lineup, swapRival = true) {
+  applyLineup(mine, rival, lineup) {
     const used = new Set();
     for (const p of mine.players) {
       if (p.role !== 'CB' && lineup[p.role]) p.hero = lineup[p.role];
       used.add(p.hero.name);
     }
-    if (!swapRival) return;
     const theirs = new Set(rival.players.map((p) => p.hero.name));
     const spare = [...SQUADS[1].heroes, ...SQUADS[0].heroes].filter((x) => !used.has(x.name) && !theirs.has(x.name) && x.name !== 'Zamzam');
     for (const p of rival.players) {
@@ -853,7 +837,7 @@ export class Game {
     if (p.suspCount >= 3) p.red = true;
     p.susp = this.suspLen; p.active = false; p.air = false; p.z = 0;
     t.stats.suspensions++;
-    if (this.ctrl[p.team] === p) this.ctrl[p.team] = null;
+    if (this.controlled === p) this.controlled = null;
     this.emit({ type: 'card', kind: p.red ? 'red' : '2min', team: p.team });
   }
 
@@ -910,7 +894,7 @@ export class Game {
     taker.ai.delay = rnd(0.3, 0.9);
     // the computer's taker waits for the whistle; yours may move (it's a game for kids)
     this.lock = { p: taker, penalty: type === 'penalty' };
-    if (this.isHuman(teamIdx)) taker.holdT = -2;
+    if (teamIdx === this.opts.human) taker.holdT = -2;
     const names = { throwoff: 'זריקת פתיחה', freethrow: 'זריקה חופשית', throwin: 'זריקת חוץ', penalty: 'זריקת 7 מטר!' };
     const title = o.title || names[type];
     this.say(title, o.sub || `הכדור ${t.kit.to}`, type === 'penalty' ? 2 : 1.5, o.title ? 'rule' : 'info');
@@ -1062,7 +1046,7 @@ export class Game {
           if (d >= r || b.tried.has(p)) continue;
           b.tried.add(p);
           // your passes are hard to cut off (the magnet pulls the ball past defenders)
-          const shield = this.isHuman(b.lastTeam) ? 0.12 : 1;
+          const shield = b.lastTeam === this.opts.human ? 0.12 : 1;
           if (Math.random() >= this.diffFor(p).intercept * shield * (b.z < 1.6 ? 1 : 0.5)) continue;
         }
       } else if (b.z > 1.3 + p.z) continue;
@@ -1180,65 +1164,6 @@ export class Game {
       f.phase += hyp(f.vx, f.vy) * dt * 3.1;
       f.face = Math.abs(f.vx) > 0.3 ? (f.vx > 0 ? 0 : Math.PI) : Math.PI / 2;
     });
-  }
-
-  // ---------------------------------------------------------------- two phones
-  // The host phone runs the match; the friend's phone gets a snapshot of what it needs to draw it
-  // (about 30 a second) and never steps its own copy. Plain JSON, about 2 KB.
-  snapshot() {
-    const r = (v) => Math.round(v * 100) / 100, b = this.ball, id = (p) => (p ? p.id : -1);
-    const m = this.msg, sig = this.signal;
-    return {
-      st: this.state, cl: r(this.clock), half: this.half, time: r(this.time), poss: this.poss,
-      pas: this.passive ? this.passivePasses : -1, spl: r(this.splash || 0), spT: this.splashInfo ? this.teams.findIndex((t) => this.powers.teams[t.idx] === this.splashInfo) : -1,
-      msg: m && [m.title, m.sub, m.kind, m.only], sig: sig && sig.type, lock: this.lock ? this.lock.p.id : -1,
-      teams: this.teams.map((t) => [t.score, r(t.energy), this.powers.teams[t.idx] && this.powers.teams[t.idx].armed ? 1 : 0, t.defX, t.stats]),
-      ctrl: this.ctrl.map(id), hints: this.hints.map(id),
-      b: [r(b.x), r(b.y), r(b.z), r(b.vx), r(b.vy), r(b.vz), id(b.owner), b.state, b.power || 0, b.powerTeam || 0, b.goalX],
-      p: this.all.map((p) => [r(p.x), r(p.y), r(p.z), r(p.vx), r(p.vy), r(p.face), r(p.phase), p.action || 0, r(p.actT), p.charging ? 1 : 0, r(p.charge),
-        p.diveDir, r(p.stance), p.carry || 0, r(p.frozen || 0), p.iced ? 1 : 0, p.active ? 1 : 0, p.effects.length ? 1 : 0, p.num, r(p.susp), r(p.holdT), r(p.stepDist)]),
-      refs: this.refs.map((f) => [r(f.x), r(f.y), r(f.face), r(f.phase)]),
-    };
-  }
-
-  applySnapshot(s) {
-    const byId = (i) => (i < 0 ? null : this.all.find((p) => p.id === i));
-    this.state = s.st; this.clock = s.cl; this.half = s.half; this.time = s.time; this.poss = s.poss;
-    this.passive = s.pas >= 0; this.passivePasses = Math.max(0, s.pas);
-    this.splash = s.spl; this.splashInfo = s.spT >= 0 ? this.powers.teams[s.spT] : null;
-    const m = this.msg;
-    // keep the same message object while it is the same message, so the banner isn't redrawn
-    if (!s.msg) this.msg = null;
-    else if (!m || m.title !== s.msg[0] || m.sub !== s.msg[1] || m.kind !== s.msg[2]) this.msg = { title: s.msg[0], sub: s.msg[1], kind: s.msg[2], only: s.msg[3], t: 9 };
-    this.signal = s.sig ? { type: s.sig, t: 1 } : null;
-    this.lock = s.lock >= 0 ? { p: byId(s.lock), penalty: false } : null;
-    s.teams.forEach(([score, energy, armed, defX, stats], i) => {
-      const t = this.teams[i];
-      t.score = score; t.energy = energy; t.defX = defX; t.stats = stats;
-      if (this.powers.teams[i]) this.powers.teams[i].armed = !!armed;
-    });
-    this.ctrl = s.ctrl.map(byId); this.hints = s.hints.map(byId);
-    const b = this.ball, q = s.b;
-    [b.x, b.y, b.z, b.vx, b.vy, b.vz] = q;
-    b.owner = byId(q[6]); b.state = q[7]; b.power = q[8] || null; b.powerTeam = q[9]; b.goalX = q[10];
-    s.p.forEach((a, i) => {
-      const p = this.all[i];
-      [p.x, p.y, p.z, p.vx, p.vy, p.face, p.phase] = a;
-      p.action = a[7] || null; p.actT = a[8]; p.charging = !!a[9]; p.charge = a[10]; p.diveDir = a[11]; p.stance = a[12];
-      p.carry = a[13] || null; p.frozen = a[14]; p.iced = !!a[15]; p.active = !!a[16]; p.effects = a[17] ? NET_FX : [];
-      p.num = a[18]; p.susp = a[19]; p.holdT = a[20]; p.stepDist = a[21]; p.air = p.z > 0.01;
-    });
-    s.refs.forEach((a, i) => { const f = this.refs[i]; [f.x, f.y, f.face, f.phase] = a; });
-  }
-
-  // Between snapshots the friend's phone moves everything along at its last speed (no jerky 30 Hz).
-  coast(dt) {
-    for (const p of this.all) if (p.active) { p.x += p.vx * dt; p.y += p.vy * dt; }
-    const b = this.ball;
-    if (b.owner) return;
-    if (b.state === 'dead') return;
-    b.x += b.vx * dt; b.y += b.vy * dt;
-    if (b.z > 0 || b.vz > 0) { b.vz -= G * dt; b.z = Math.max(0, b.z + b.vz * dt); }
   }
 
   clockText() {

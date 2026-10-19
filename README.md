@@ -14,7 +14,6 @@ The game is 7 v 7 on a 40 × 20 m court with real IHF markings, two referees, a 
 - **Players:** every player is a big-headed cartoon hero. Five of them are real kids (איתן, אמה, אייל, רפל, רוי), drawn from their photos. The photos themselves are not stored anywhere.
 - **Teams:** you play as הצרעות, a club from the league, or a national team.
 - **Powers:** one of your kids gets a special power each match.
-- **Two players:** two kids can play against each other, each on their own phone.
 
 ## Play
 
@@ -57,7 +56,6 @@ js/clubs.js         League clubs and national teams: names, shirt colours, flags
 js/tv.js            TV camera view (like FIFA): perspective court, stands, LED boards, 3D goals
 js/input.js         Keyboard + multi-touch joystick and buttons
 js/audio.js         Synthesised music loop, whistle, ball and crowd sounds (WebAudio, no audio files)
-js/net.js           Two players on two phones: a direct WebRTC link, found through a 4-digit code
 js/powers.js        Special power logic (driven by the chosen template)
 js/heroes.js        Hero profiles (from photos), power templates, full-screen POWER portrait
 sw.js, manifest     PWA: install to the home screen, works offline
@@ -65,7 +63,6 @@ tests/sim.mjs       Headless AI-vs-AI matches (`npm test`)
 tests/power.mjs     Every power, end to end (`npm test`)
 tests/pass.mjs      The pass magnet (`npm test`)
 tests/lineup.mjs    Picking the players (`npm test`)
-tests/twoplayer.mjs Two players: both teams steered, the friend's phone in sync (`npm test`)
 tests/e2e.mjs       Playwright phone test of the real game, in sections
 tests/run-e2e.mjs   Runs the e2e sections in parallel (`npm run e2e`)
 tools/stamp.mjs     Deploy-time versioning of every file URL
@@ -95,7 +92,7 @@ In the TV view the renderer draws the court as one texture in perspective (a ful
   - Clubs wear an emblem of our own: a shield in the club colours with its initials. It is not the official logo.
   - Tapping a team moves on.
 - **"מי משחק ב…?"**:
-  - **Which kids play:** the five kids from the photos (איתן, אמה, אייל, רפל, רוי). All five play at first. One tap takes a kid out or puts them back, and at least one kid always plays. The Hornets' cartoon heroes fill the other places.
+  - **Which kids play:** the five kids from the photos (איתן, אמה, אייל, רפל, רוי). All five play at first. A kid new to the game joins a saved team once. One tap takes a kid out or puts them back, and at least one kid always plays. The Hornets' cartoon heroes fill the other places.
   - **Opponent:** the opponent chip shows who you play against. It comes from your group: club against club, nation against nation, and הצרעות always against הצפעונים. Tapping 🔀 draws another opponent. Sometimes a kid who isn't playing for you leads the opponent, and the chip says so.
   - **The power is drawn:** at kick-off one of your kids is drawn to carry the special power, the power itself is drawn too, and a message says who got what (for example "הכוח של אמה ❄ קרח").
 - **Match:** the corner buttons are the camera (top or TV) and pause. On phones, fullscreen turns on by itself.
@@ -120,18 +117,9 @@ Choices are saved under `handball8`. Older `handball7` data carries over once.
 - `mock/eitan.html` shows every power for a kid side by side.
 - `js/clubs.js` has the teams. Each club has an emblem of our own; each nation has its flag.
 
-## Two players (two phones)
-
-Two kids play against each other, each on their own phone, each steering their own team.
-- **The flow:** both tap **"👫 שני שחקנים"**, pick their team and their kids (the same screens as one player), then one taps **"פותחים משחק"** and gets a 4-digit code, and the other taps **"מצטרפים למשחק"** and types the code. The match starts on both phones.
-- **Kids:** a kid can't play on both teams. If both players picked the same kid, the friend gets another one.
-- **The host's phone runs the match** (`js/game.js` with `human: 0, human2: 1`). The friend's phone sends its stick and buttons, and gets a snapshot of the match about 30 times a second (`Game.snapshot()` / `applySnapshot()`, about 2 KB), which it draws. Between snapshots everything keeps moving at its last speed (`coast()`).
-- **Pause, half-time, "עוד משחק!":** either phone can press them; the host's phone does them for both. Leaving the match tells the other phone. When the other phone goes quiet for 1.5 s (it went to sleep, or the Wi-Fi hiccuped), the match waits and says "מחכים לחבר…".
-- **The connection:** the phones talk directly over WebRTC. To find each other they meet for a few seconds on the free public PeerJS server (`0.peerjs.com`), which only passes the connection details. There is no game server. It works best on the same Wi-Fi; between two mobile networks some connections can fail, because there is no relay (TURN) server.
-
 ## Tests
 
-- `npm test`: headless matches (`tests/sim.mjs`), every power end to end (`tests/power.mjs`), the pass magnet (`tests/pass.mjs`), the line-up (`tests/lineup.mjs`) and two players (`tests/twoplayer.mjs`).
+- `npm test`: headless matches (`tests/sim.mjs`), every power end to end (`tests/power.mjs`), the pass magnet (`tests/pass.mjs`) and the line-up (`tests/lineup.mjs`).
 - `npm run e2e`: plays the real game in Chromium as a phone held sideways, using **real touch events**. The sections run in parallel, each in its own browser (`tests/run-e2e.mjs`, about 2 minutes; `npm run e2e:serial` runs them one by one). It covers:
   - the flow (3 taps from opening to the match), Hebrew labels and fonts, the drawn power, and the music level;
   - the kids screen: taking kids out and back in (at least one), the opponent chip, and the match matching the chip;
@@ -141,8 +129,7 @@ Two kids play against each other, each on their own phone, each steering their o
   - every power through the real POWER button, including armed powers;
   - the computer's power, menus and the upright-phone hint;
   - the view button (top, TV), quick taps, steering in the TV view, and remembering the view;
-  - a full match (the simulation is fast-forwarded inside the page, then the real half-time and full-time screens);
-  - two players: two phones in one browser connect with the code over a real WebRTC link (they meet over a `BroadcastChannel`, `?signal=bc`, instead of the public server), then the friend's stick, buttons, pause, half-time, the end and leaving. `PEER=127.0.0.1:9000` meets on a PeerJS server of your own instead.
+  - a full match (the simulation is fast-forwarded inside the page, then the real half-time and full-time screens).
   - `ONLY=control,power` runs some sections, `JOBS=2` sets how many browsers run at once, and `E2E_DPR=2` draws at phone sharpness (slower). `SERVE_DIR=…` tests a stamped build.
 
 ## Deploy (GitHub Pages)
