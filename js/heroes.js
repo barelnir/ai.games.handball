@@ -36,6 +36,13 @@ export const PROFILES = [
     skin: '#e8b48e', skinShade: '#d39670', hair: '#2b1a12', hairHi: '#5b3b27', brow: '#2a1a12',
     iris: '#3b2416', glasses: null, style: 'curly', mouth: 'smirk', power: 'lightning',
   },
+  {
+    // short black hair combed up and over to one side, thick dark eyebrows, big dark eyes with long
+    // lashes, freckles across the nose and cheeks, olive skin, a calm closed mouth
+    id: 'cohen', name: 'Cohen', nameHe: 'כהן',
+    skin: '#dca57c', skinShade: '#c38862', hair: '#1a1210', hairHi: '#3e2c22', brow: '#1a1210',
+    iris: '#3a2214', glasses: null, style: 'neat', mouth: 'calm', freckles: '#a5683f', lashes: true, power: 'muscle',
+  },
 ];
 export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES[0];
 
@@ -233,8 +240,9 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
   E(R, 0, hy, 1.1, 1.05, SKIN);
   R.ellipse(0, hy + 0.75, 0.55, 0.22, col(pr.skinShade, 0.25)); // chin shade
 
-  // hair
-  E(R, 0, hy - 0.72, 1.12, 0.5, HAIR);
+  // hair (short neat hair sits higher, so the forehead and the eyebrows show)
+  const capY = pr.style === 'neat' ? -1.04 : -0.72;
+  E(R, 0, hy + capY, 1.12, 0.5, HAIR);
   if (pr.style === 'swoop') { // short sides, tall tufty top swept up and to the right
     for (const [bx, tx, ty] of [[-0.75, -0.6, -1.15], [-0.4, -0.1, -1.45], [0.0, 0.45, -1.6], [0.4, 0.95, -1.4], [0.75, 1.15, -1.0]]) {
       T(R, bx - 0.32, hy - 0.62, bx + 0.32, hy - 0.66, tx, hy + ty, HAIR, 0.06);
@@ -250,7 +258,15 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
       E(R, Math.cos(a) * 0.62, hy - 0.86 + Math.sin(a) * 0.62, 0.26, 0.24, HAIR);
     }
   }
-  R.ellipse(0, hy - 0.75, 1.08, 0.46, HAIR);
+  if (pr.style === 'neat') { // short, combed up at the front and over to one side
+    E(R, -0.35, hy - 1.08, 0.6, 0.28, HAIR);
+    E(R, 0.28, hy - 1.16, 0.74, 0.3, HAIR);
+  }
+  R.ellipse(0, hy + capY - 0.03, 1.08, 0.46, HAIR);
+  if (pr.style === 'neat') {
+    R.ellipse(-0.35, hy - 1.08, 0.56, 0.24, HAIR); R.ellipse(0.28, hy - 1.16, 0.7, 0.26, HAIR); // no lines inside
+    for (const [a, b, c, d] of [[-0.7, -0.98, -0.15, -1.2], [-0.3, -0.96, 0.3, -1.3], [0.1, -0.98, 0.75, -1.24]]) R.line(a, hy + b, c, hy + d, 0.03, HAIR_HI); // combed strands
+  }
   if (pr.style === 'curly') {
     R.ellipse(0, hy - 1.0, 0.95, 0.5, HAIR); // fill in the mop (no outlines inside it)
     for (const [x, y] of [[-0.62, -0.6], [-0.3, -0.56], [0.06, -0.62], [0.42, -0.66]]) E(R, x, hy + y, 0.17, 0.15, HAIR); // curls on the forehead
@@ -282,6 +298,8 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
       R.line(s * 1.04, hy - 0.5, s * 1.16, hy - 0.05, 0.04, HAIR);
       R.line(s * 1.1, hy - 0.4, s * 1.2, hy + 0.12 + Math.sin(t * 2 + s) * 0.03, 0.022, HAIR);
     }
+  } else if (pr.style === 'neat') { // short sides, down from the hair to the temples
+    for (const x of [-0.84, 0.84]) R.ellipse(x, hy - 0.62, 0.17, 0.3, HAIR);
   } else if (pr.style === 'curly') { // short sides
     R.ellipse(-1.03, hy - 0.42, 0.1, 0.2, HAIR);
     R.ellipse(1.03, hy - 0.42, 0.1, 0.2, HAIR);
@@ -289,11 +307,11 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     R.ellipse(-1.02, hy - 0.25, 0.14, 0.32, HAIR); // sideburns
     R.ellipse(1.02, hy - 0.25, 0.14, 0.32, HAIR);
   }
-  if (pr.style !== 'side' && pr.style !== 'curly') for (const [a, b, c, d] of [[-0.5, -1.0, -0.2, -1.3], [0.1, -1.05, 0.45, -1.4], [0.55, -0.95, 0.85, -1.2]]) R.line(a, hy + b + 0.2, c, hy + d + 0.2, 0.035, HAIR_HI);
+  if (pr.style !== 'side' && pr.style !== 'curly' && pr.style !== 'neat') for (const [a, b, c, d] of [[-0.5, -1.0, -0.2, -1.3], [0.1, -1.05, 0.45, -1.4], [0.55, -0.95, 0.85, -1.2]]) R.line(a, hy + b + 0.2, c, hy + d + 0.2, 0.035, HAIR_HI);
 
   // eyebrows (thick)
   for (const s of [-1, 1]) R.line(s * 0.7, hy - 0.42, s * 0.18, hy - 0.47, pr.girl ? 0.045 : 0.065, col(pr.brow));
-  if (pr.girl) for (const s of [-1, 1]) for (let k = 0; k < 3; k++) R.line(s * (0.62 - k * 0.05), hy - 0.2, s * (0.68 - k * 0.04), hy - 0.27, 0.014, TP.ink); // lashes
+  if (pr.girl || pr.lashes) for (const s of [-1, 1]) for (let k = 0; k < 3; k++) R.line(s * (0.62 - k * 0.05), hy - 0.2, s * (0.68 - k * 0.04), hy - 0.27, 0.014, TP.ink); // lashes
 
   // glasses frames, then eyes inside them
   const laser = v.acc.includes('laser');
@@ -339,6 +357,9 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     R.line(-0.12, hy + 0.45, 0.12, hy + 0.45, 0.028, TP.ink);
     R.line(0.12, hy + 0.45, 0.38, hy + 0.38, 0.028, TP.ink);
     for (const s of [-1, 1]) R.line(s * 0.43, hy + 0.36, s * 0.5, hy + 0.28, 0.025, SKIN_SH); // dimples
+  } else if (pr.mouth === 'calm') { // a calm, closed mouth: a short straight line and a full lower lip
+    R.line(-0.24, hy + 0.56, 0.24, hy + 0.56, 0.04, TP.ink);
+    R.ellipse(0, hy + 0.64, 0.17, 0.05, LIP);
   } else if (pr.mouth === 'smile') {
     const m = [[-0.34, 0.52], [-0.16, 0.6], [0.16, 0.6], [0.34, 0.52]];
     for (let i = 0; i < m.length - 1; i++) R.line(m[i][0], hy + m[i][1], m[i + 1][0], hy + m[i + 1][1], 0.04, TP.ink);

@@ -17,7 +17,7 @@ const STEP = 1 / 60;
 // Saved choices (key handball8; older handball7 data is carried over once).
 const settings = {
   difficulty: 'normal', half: '300', rules: 'arcade', sound: true, music: true, view: 'top',
-  team: 'hornets', players: ['eitan', 'emma', 'eyal', 'rafael', 'roy'], opponent: null, oppKid: null, played: false,
+  team: 'hornets', players: ['eitan', 'emma', 'eyal', 'rafael', 'roy', 'cohen'], opponent: null, oppKid: null, played: false,
 };
 try {
   const saved = localStorage.getItem('handball8');
@@ -142,9 +142,9 @@ function rollOpponent(saveNow = true) {
   settings.oppKid = free.length && Math.random() < 0.4 ? draw(free) : null;
   if (saveNow) save();
 }
-// The power kid plays centre back; the other kids play left back, right back, line and left wing;
-// the Hornets fill the other places.
-const FRIEND_SPOTS = ['LB', 'RB', 'PV', 'LW'];
+// The power kid plays centre back; the other kids play left back, right back, line, left wing and
+// right wing; the Hornets fill the other places.
+const FRIEND_SPOTS = ['LB', 'RB', 'PV', 'LW', 'RW'];
 function autoLineup(friends) {
   const out = {};
   friends.slice(0, FRIEND_SPOTS.length).forEach((k, i) => { out[FRIEND_SPOTS[i]] = kidHero(profileById(k)); });

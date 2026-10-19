@@ -238,7 +238,7 @@ body:not(.touch) #stick { display: none; }
 .lu-card.sel { border-color: var(--hornet); box-shadow: 0 0 0 3px rgba(255, 210, 63, 0.4), 0 4px 0 rgba(0, 0, 0, 0.35); }
 .kid-row { display: flex; justify-content: center; gap: 10px; }
 .kid-card {
-  width: 160px; display: grid; justify-items: center; gap: 2px; padding: 8px 6px;
+  width: 148px; display: grid; justify-items: center; gap: 2px; padding: 8px 6px;
   background: rgba(19, 32, 47, 0.92); border: 3px solid var(--outline); border-radius: 16px; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
 }
 .kid-card canvas { width: 104px; height: 104px; border-radius: 50%; border: 3px solid var(--outline); background: #101833; display: block; filter: grayscale(0.7) brightness(0.7); }
@@ -255,8 +255,8 @@ body:not(.touch) #stick { display: none; }
 .chip:disabled { opacity: 1; cursor: default; }
 #go { padding: 10px 22px; font-size: 22px; }
 @media (max-height: 430px) {
-  .kid-card canvas { width: 88px; height: 88px; }
-  .kid-card { width: 146px; padding: 6px 4px; }
+  .kid-card canvas { width: 80px; height: 80px; }
+  .kid-card { width: 122px; padding: 6px 4px; }
   .kid-card b { font-size: 18px; }
   .lu-card canvas { width: 48px; height: 48px; }
   .lu-card { width: 92px; padding: 4px; }

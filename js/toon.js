@@ -345,6 +345,15 @@ function drawHairFront(R, h, X, headY, HR, hair, skin, dirX, side, t, kit) {
       R.line(X - 0.1, top + 0.04, X + 0.05 * d, top - 0.03, 0.012, col('#a07a50'));
       break;
     }
+    case 'neat': {
+      // short, combed up at the front and over to one side
+      const d = side ? dirX : 1;
+      cap(0);
+      E(R, X + d * 0.05, top + 0.05, HR * 0.7, 0.09, hair);
+      R.ellipse(X, headY - HR * 0.6, HR * 0.95, HR * 0.42, hair);
+      R.line(X - d * 0.12, top + 0.06, X + d * 0.1, top + 0.0, 0.012, col('#ffffff', 0.18));
+      break;
+    }
     case 'curly': {
       // a mop of curls: bumps around the top and a few over the forehead
       const o = side ? dirX * 0.03 : 0;
