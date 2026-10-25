@@ -43,6 +43,13 @@ export const PROFILES = [
     skin: '#dca57c', skinShade: '#c38862', hair: '#1a1210', hairHi: '#3e2c22', brow: '#1a1210',
     iris: '#3a2214', glasses: null, style: 'neat', mouth: 'calm', freckles: '#a5683f', lashes: true, power: 'muscle',
   },
+  {
+    // ginger-blond wavy hair, a bit messy, with a fringe falling over the forehead to one side,
+    // fair skin with a few freckles on the nose, light hazel eyes, a calm closed mouth
+    id: 'eliya', name: 'Eliya', nameHe: 'אליה',
+    skin: '#f4cdb0', skinShade: '#e2aa8a', hair: '#c4813c', hairHi: '#eeba76', brow: '#a26a36',
+    iris: '#6b5232', glasses: null, style: 'messy', mouth: 'calm', freckles: '#d79a72', power: 'fire',
+  },
 ];
 export const profileById = (id) => PROFILES.find((p) => p.id === id) || PROFILES[0];
 
@@ -258,6 +265,9 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
       E(R, Math.cos(a) * 0.62, hy - 0.86 + Math.sin(a) * 0.62, 0.26, 0.24, HAIR);
     }
   }
+  if (pr.style === 'messy') { // wavy and a bit messy: soft tufts sticking up on top
+    for (const [x, y, rx, ry] of [[-0.85, -0.95, 0.34, 0.3], [-0.42, -1.25, 0.4, 0.32], [0.12, -1.35, 0.42, 0.3], [0.62, -1.18, 0.4, 0.3], [0.95, -0.85, 0.3, 0.28]]) E(R, x, hy + y, rx, ry, HAIR);
+  }
   if (pr.style === 'neat') { // short, combed up at the front and over to one side
     E(R, -0.35, hy - 1.08, 0.6, 0.28, HAIR);
     E(R, 0.28, hy - 1.16, 0.74, 0.3, HAIR);
@@ -273,6 +283,14 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     for (const [x, y] of [[-0.75, -1.3], [-0.3, -1.5], [0.2, -1.52], [0.65, -1.35], [-0.55, -0.95], [0.0, -1.05], [0.5, -0.98], [-0.62, -0.6], [-0.3, -0.56], [0.06, -0.62], [0.42, -0.66]]) {
       R.line(x - 0.1, hy + y - 0.01, x + 0.02, hy + y - 0.09, 0.03, HAIR_HI); // a little shine on each curl
     }
+  }
+  if (pr.style === 'messy') { // fill the top, then wavy locks over the forehead, swept to one side
+    R.ellipse(0, hy - 1.0, 1.0, 0.42, HAIR);
+    for (const [x0, x1, tx, ty] of [[-1.0, -0.5, -0.95, -0.3], [-0.62, -0.1, -0.62, -0.36], [-0.22, 0.3, -0.25, -0.42], [0.18, 0.68, 0.18, -0.46], [0.55, 1.02, 0.62, -0.5]]) {
+      T(R, x0, hy - 0.8, x1, hy - 0.84, tx, hy + ty, HAIR, 0.08);
+    }
+    R.ellipse(0, hy - 0.82, 1.02, 0.34, HAIR);
+    for (const [a, b, c, d] of [[-0.72, -1.08, -0.56, -0.82], [-0.22, -1.28, -0.3, -0.98], [0.3, -1.3, 0.2, -1.0], [0.78, -1.02, 0.62, -0.8]]) R.line(a, hy + b, c, hy + d, 0.035, HAIR_HI);
   }
   if (pr.style === 'fringe') { // bangs falling over the forehead
     for (const [x0, x1, tip] of [[-0.95, -0.45, -0.75], [-0.55, -0.05, -0.32], [-0.15, 0.35, 0.12], [0.25, 0.75, 0.52], [0.6, 1.0, 0.85]]) {
@@ -307,7 +325,7 @@ export function drawPortrait(R, pr, v, t, intro = 1) {
     R.ellipse(-1.02, hy - 0.25, 0.14, 0.32, HAIR); // sideburns
     R.ellipse(1.02, hy - 0.25, 0.14, 0.32, HAIR);
   }
-  if (pr.style !== 'side' && pr.style !== 'curly' && pr.style !== 'neat') for (const [a, b, c, d] of [[-0.5, -1.0, -0.2, -1.3], [0.1, -1.05, 0.45, -1.4], [0.55, -0.95, 0.85, -1.2]]) R.line(a, hy + b + 0.2, c, hy + d + 0.2, 0.035, HAIR_HI);
+  if (!['side', 'curly', 'neat', 'messy'].includes(pr.style)) for (const [a, b, c, d] of [[-0.5, -1.0, -0.2, -1.3], [0.1, -1.05, 0.45, -1.4], [0.55, -0.95, 0.85, -1.2]]) R.line(a, hy + b + 0.2, c, hy + d + 0.2, 0.035, HAIR_HI);
 
   // eyebrows (thick)
   for (const s of [-1, 1]) R.line(s * 0.7, hy - 0.42, s * 0.18, hy - 0.47, pr.girl ? 0.045 : 0.065, col(pr.brow));

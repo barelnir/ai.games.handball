@@ -345,6 +345,21 @@ function drawHairFront(R, h, X, headY, HR, hair, skin, dirX, side, t, kit) {
       R.line(X - 0.1, top + 0.04, X + 0.05 * d, top - 0.03, 0.012, col('#a07a50'));
       break;
     }
+    case 'messy': {
+      // wavy and a bit messy: soft tufts on top and locks over the forehead, swept to one side
+      const d = side ? dirX : 1;
+      for (let i = -2; i <= 2; i++) {
+        const a = -Math.PI / 2 + i * 0.45;
+        E(R, X + Math.cos(a) * HR * 0.8, headY - 0.02 + Math.sin(a) * HR * 0.85, 0.085, 0.07, hair);
+      }
+      cap(0);
+      for (let i = 0; i < 4; i++) {
+        const bx = X - 0.15 + i * 0.1;
+        R.tri(bx - 0.07, top + 0.04, bx + 0.07, top + 0.04, bx - d * 0.04, top + 0.15 + (i % 2) * 0.03, hair);
+      }
+      R.ellipse(X, headY - HR * 0.62, HR * 0.92, HR * 0.42, hair);
+      break;
+    }
     case 'neat': {
       // short, combed up at the front and over to one side
       const d = side ? dirX : 1;
